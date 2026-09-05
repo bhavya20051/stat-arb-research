@@ -47,7 +47,7 @@ def build(lookbacks=(1, 2, 3), decision_time: str = "15:40") -> dict[str, pd.Dat
     smap = sector_map()
     sector_of = {r["symbol"]: smap.get(r["sector"], "SPY") for _, r in sm.iterrows()}
     fac_cols = [e for e in etfs if e in ret.columns]
-    betas = rolling_betas(ret[have], ret[fac_cols], window=120)
+    betas = rolling_betas(ret[have], ret[fac_cols], window=250)  # 250d: RES-1 showed 120d betas too noisy
     betas_lag = {k: v.shift(1) for k, v in betas.items()}
     feats = {"p1545": p1545}
     idx = p1545.index.intersection(ret.index)
