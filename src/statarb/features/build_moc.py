@@ -62,7 +62,15 @@ def build(lookbacks=(1, 2, 3), decision_time: str = "15:40") -> dict[str, pd.Dat
     feats["earnings_flag_1540"] = earn
     partial = p1545[have].reindex(idx) / prev_close_basis[have].reindex(idx).shift(1) - 1.0
     sane = (partial.abs() <= 0.25) & (feats["score_moc_k1"].abs() <= 8.0)   # data-sanity mask (bad bars / spin-offs)
-    feats["eligible_moc"] = elig[have].reindex(idx).fillna(False) & p1545[have].reindex(idx).notna() & ~flag & sane.fillna(False)
+    # ex-ante intraday reliability: trailing 60-day agreement (through t-1) between the intraday-derived close-to-close
+    # return and the daily total return; ticker reuse/splicing in FMP intraday histories fails this (audit item).
+    r_int = last_bar[have].reindex(idx) / prev_close_basis[have].reindex(idx).shift(1) - 1.0
+    r_day = adj_close[have].reindex(idx).pct_change()
+    agree = ((r_int - r_day).abs() <= 0.01).where(r_int.notna() & r_day.notna())
+    reliability = agree.rolling(60, min_periods=30).mean().shift(1)
+    feats["intraday_reliability"] = reliability
+    feats["eligible_moc"] = (elig[have].reindex(idx).fillna(False) & p1545[have].reindex(idx).notna() & ~flag
+                             & sane.fillna(False) & (reliability >= 0.95).fillna(False))
     feats["auction_vol_proxy"] = auction_volume_proxy(have).reindex(idx)
     for name, df in feats.items():
         df.to_parquet(OUT / f"{name}.parquet")
