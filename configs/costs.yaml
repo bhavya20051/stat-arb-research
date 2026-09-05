@@ -26,8 +26,11 @@ spread_estimators:        # used for continuous-session fills (limit-order and M
   liquidity_bucket_floor_bp: {top: 0.5, mid: 1.0, bottom: 2.0}
 
 impact:
-  model: square_root       # k * sigma_daily * sqrt(participation)
-  k: 1.0
+  model: power_law         # k * sigma_daily * participation**exponent  (Almgren, Thum, Hauptmann & Li 2005; verify at M3)
+  k: 0.142
+  exponent: 0.6
+  stress_variant: {k: 1.0, exponent: 0.5}   # the originally pre-registered sqrt/k=1 form, ~14x larger at 0.1% participation; kept as a stress test
+  correction_note: "2026-09-05: sqrt/k=1 was a magnitude error vs the published estimate; corrected before any VAL/holdout run (registry row COST-1)"
   continuous_participation_cap: 0.01
   auction_participation_cap: 0.02
 

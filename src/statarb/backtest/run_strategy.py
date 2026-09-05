@@ -43,6 +43,7 @@ class StrategySpec:
     start: str | None = None
     end: str | None = None
     label: str = "base"
+    signal_lag_days: int = 0          # 1 = conservative daily-only proxy for MOC (signal from t-1 data, fill close t)
 
 
 def cost_params_from_config(execution: str, multiplier: float = 1.0, extra_bp: float = 0.0) -> CostParams:
@@ -56,6 +57,7 @@ def cost_params_from_config(execution: str, multiplier: float = 1.0, extra_bp: f
         finra_taf_max=c["regulatory_fees_on_sells"].get("finra_taf_max_per_trade") or 8.30,
         borrow_annual=c["short_borrow"]["general_collateral_annual"],
         impact_k=c["impact"]["k"],
+        impact_exponent=c["impact"].get("exponent", 0.5),
         spread_multiplier=multiplier,
         extra_slippage_bp=extra_bp,
         pay_spread=(execution not in ("moc", "moo")),
@@ -94,6 +96,8 @@ def run(spec: StrategySpec, feats: dict | None = None, cost_multiplier: float = 
     if feats is None:
         feats = {k: load_feature(k) for k in ("ret", "eligible", "abn_turnover", f"score_k{spec.lookback}")}
     w = build_weights(spec, feats)
+    if spec.signal_lag_days:
+        w = w.shift(spec.signal_lag_days).fillna(0.0)
     if spec.start or spec.end:
         w = w.loc[spec.start : spec.end]
     syms = [s for s in w.columns]

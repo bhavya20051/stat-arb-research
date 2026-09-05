@@ -207,7 +207,7 @@ def pull_intraday(c: FMPClient, symbols: list[str], start: str, end: str, window
             a = str(a_ts.date())
             b = str((b_ts - pd.Timedelta(days=1)).date()) if b_ts != edges[-1] else str(b_ts.date())
             plist.append({"symbol": s, "from": a, "to": b})
-        for rows in c.get_many("historical-chart/15min", plist, workers=8):
+        for rows in c.get_many("historical-chart/15min", plist, workers=12):
             rows = rows or []
             if rows:
                 df = pd.DataFrame(rows)

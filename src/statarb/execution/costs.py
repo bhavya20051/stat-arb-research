@@ -19,7 +19,8 @@ class CostParams:
     finra_taf_per_share: float = 0.0
     finra_taf_max: float = 0.0
     borrow_annual: float = 0.005
-    impact_k: float = 1.0
+    impact_k: float = 0.142  # Almgren, Thum, Hauptmann & Li (2005) temporary-impact coefficient (verify at M3)
+    impact_exponent: float = 0.6
     spread_multiplier: float = 1.0
     extra_slippage_bp: float = 0.0
     trading_days: int = 252
@@ -53,10 +54,10 @@ def spread_cost(notional: np.ndarray, half_spread: np.ndarray, p: CostParams) ->
 
 
 def impact_cost(notional: np.ndarray, participation: np.ndarray, sigma_daily: np.ndarray, p: CostParams) -> np.ndarray:
-    """Square-root impact: k * sigma_daily * sqrt(participation) * |notional|."""
+    """Power-law impact: k * sigma_daily * participation**exponent * |notional| (Almgren 2005 form; sqrt k=1 stress)."""
     part = np.nan_to_num(participation, nan=0.0)
     sig = np.nan_to_num(sigma_daily, nan=0.0)
-    return p.impact_k * sig * np.sqrt(np.clip(part, 0, None)) * np.abs(notional)
+    return p.impact_k * sig * np.power(np.clip(part, 0, None), p.impact_exponent) * np.abs(notional)
 
 
 def borrow_cost(short_notional: np.ndarray, p: CostParams) -> np.ndarray:

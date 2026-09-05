@@ -2,23 +2,23 @@
 
 Generated 2026-09-05 by `statarb.data.audit` from `C:\Users\bhavy\statarb_data\processed`.
 
-- Rows: 3,545,522; symbols: 848; date range 2005-01-03 → 2026-08-31.
-- Trading days (SPY): 5,000. First 2006-10-13, last 2026-08-31.
+- Rows: 3,777,995; symbols: 848; date range 2005-01-03 → 2026-08-31.
+- Trading days (SPY): 5,449. First 2005-01-03, last 2026-08-31.
 - Duplicate (symbol, date) rows: 0.
 - Impossible bars (high<low or close outside [low,high]): 0; non-positive prices: 0.
-- Zero-volume symbol-days: 11,871 (0.335% of observations).
-- Stale closes (5 identical consecutive): 5,559 symbol-days.
-- |daily return| > 50%: 358 symbol-days (cross-checked against splits below).
-- Adjustment-ratio jumps: 2,637,810; not matching a split/dividend date: 2,600,388 (98.6%).
+- Zero-volume symbol-days: 11,877 (0.314% of observations).
+- Stale closes (5 identical consecutive): 5,564 symbol-days.
+- |daily return| > 50%: 360 symbol-days (cross-checked against splits below).
+- Adjustment-ratio jumps: 48,030; not matching a split/dividend date: 13,840 (28.8%).
 - Known split AAPL 2020-08-31 4:1 — close ratio prev/day 0.967 (≈4 if close is unadjusted, ≈1 if split-adjusted); adjClose ratio 0.967.
 - Known split TSLA 2022-08-25 3:1 — close ratio prev/day 1.003 (≈3 if close is unadjusted, ≈1 if split-adjusted); adjClose ratio 1.003.
 - Known split NVDA 2024-06-10 10:1 — close ratio prev/day 0.993 (≈10 if close is unadjusted, ≈1 if split-adjusted); adjClose ratio 0.993.
-- Membership symbols without any price rows: 787: AAF, AAV, ABA, ABC, ABS, ABW, ABX, ACAS, ACF, ACKH, ACR, ACY, AD, ADL, AEX, AFN, AFS-A, AGC, AGM, AH, AHM, AHS, AIC, AIN, AIT, AL, ALS, AM, AMF, AMH, AMI, AMO, AMR, AMX, ANDW, ANR, ANV, APCC, AR, ARC …
+- Membership symbols without any price rows: 112: ABS, ACAS, ANDW, ANR, APCC, ASN, AV, AW, AYE, BCR, BDK, BJS, BLS, BMC, BMET, BRL, BSC, BXLT, CBE, CBSS, CEPH, CFC, CFN, CIN, CMCSK, CMVT, CMX, COV, CVH, DF, DJ, DPH, DPS, DWDP, EDS, EOP, FDC, FDO, FRX, FSH …
 
 | Year | trading days | symbols with data |
 |---|---|---|
-| 2005 | 0 | 83 |
-| 2006 | 54 | 616 |
+| 2005 | 252 | 604 |
+| 2006 | 251 | 616 |
 | 2007 | 251 | 633 |
 | 2008 | 253 | 644 |
 | 2009 | 252 | 651 |

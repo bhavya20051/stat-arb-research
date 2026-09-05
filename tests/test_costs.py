@@ -32,6 +32,6 @@ def test_spread_zero_for_auction_fills():
 
 
 def test_impact_and_borrow():
-    p = CostParams(impact_k=1.0, borrow_annual=0.005, trading_days=250)
+    p = CostParams(impact_k=1.0, impact_exponent=0.5, borrow_annual=0.005, trading_days=250)
     assert np.isclose(impact_cost(np.array([1e5]), np.array([0.04]), np.array([0.02]), p)[0], 1e5 * 0.02 * 0.2)
     assert np.isclose(borrow_cost(np.array([-1e5, 1e5]), p).sum(), 1e5 * 0.005 / 250)
