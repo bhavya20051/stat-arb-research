@@ -65,7 +65,11 @@ def rolling_betas(returns: pd.DataFrame, factors: pd.DataFrame, window: int = 12
 def moc_score(p1545: pd.DataFrame, adj_close: pd.DataFrame, factor_p1545: pd.DataFrame, factor_close: pd.DataFrame,
               betas_lag: dict[str, pd.DataFrame], sector_of: dict[str, str], resid_daily: pd.DataFrame,
               resid_vol_lag: pd.DataFrame, lookback: int = 1) -> pd.DataFrame:
-    """Reversal score at 15:45 on day t (positive = oversold)."""
+    """Reversal score at 15:45 on day t (positive = oversold).
+
+    `adj_close` and `factor_close` must be on the SAME price basis as the 15:45 panels (in practice: the previous
+    day's last-bar close from the intraday series itself, dividend-adjusted on ex-dates), because FMP intraday bars
+    are split-adjusted for some symbols but not adjusted for spin-offs (verified 2026-09-05: AAPL/XLK vs A/ABT)."""
     partial = p1545 / adj_close.shift(1).reindex_like(p1545) - 1.0
     fpart = factor_p1545 / factor_close.shift(1).reindex_like(factor_p1545) - 1.0
     resid_partial = partial.copy()
