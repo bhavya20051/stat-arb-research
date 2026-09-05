@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +35,7 @@ class FMPClient:
         self.timeout = timeout
         self.session = requests.Session()
         self.n_calls = 0
+        self._lock = threading.Lock()
 
     def _cache_path(self, endpoint: str, params: dict) -> Path:
         h = hashlib.sha256(json.dumps([endpoint, params], sort_keys=True).encode()).hexdigest()[:20]
@@ -49,16 +52,17 @@ class FMPClient:
         q = dict(params)
         q["apikey"] = self._key
         for attempt in range(5):
-            wait = self.min_interval - (time.time() - self._last)
-            if wait > 0:
-                time.sleep(wait)
+            with self._lock:  # shared token: one request start per min_interval across threads
+                wait = self.min_interval - (time.time() - self._last)
+                if wait > 0:
+                    time.sleep(wait)
+                self._last = time.time()
+                self.n_calls += 1
             try:
                 r = self.session.get(BASE + endpoint, params=q, timeout=self.timeout)
             except requests.RequestException:
                 time.sleep(2**attempt)
                 continue
-            self._last = time.time()
-            self.n_calls += 1
             if r.status_code == 200:
                 try:
                     data = r.json()
@@ -114,3 +118,9 @@ class FMPClient:
 
     def earnings(self, symbol: str, limit: int = 200):
         return self.get("earnings", symbol=symbol, limit=limit)
+
+
+    def get_many(self, endpoint: str, param_list: list[dict], workers: int = 8) -> list:
+        """Fetch many parameter sets concurrently under the shared rate limiter (order preserved)."""
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            return list(ex.map(lambda p: self.get(endpoint, **p), param_list))
