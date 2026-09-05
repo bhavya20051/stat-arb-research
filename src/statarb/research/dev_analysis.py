@@ -41,9 +41,10 @@ def run(sample: str = "secondary_daily") -> dict:
         raw_score = -(dev_slice(px.pct_change(k).where(elig), sample))
         for h in (1, 3, 5):
             y = dev_slice(forward_return(px, h), sample)
-            fm = fama_macbeth(y, {"resid_score": score, "raw_score": raw_score}, min_names=100)
-            s = fm.attrs["summary"]
-            results[f"FM_k{k}_h{h}"] = {n: s[n] for n in ("resid_score", "raw_score")}
+            fm_r = fama_macbeth(y, {"resid_score": score}, min_names=100)
+            fm_w = fama_macbeth(y, {"raw_score": raw_score}, min_names=100)
+            results[f"FM_k{k}_h{h}"] = {"resid_score": fm_r.attrs["summary"]["resid_score"],
+                                       "raw_score": fm_w.attrs["summary"]["raw_score"]}
     # decay curve for k=1 and k=3 (H6)
     for k in (1, 3):
         score = dev_slice(load_feature(f"score_k{k}").where(elig), sample)

@@ -41,9 +41,8 @@ def membership_intervals() -> pd.DataFrame:
 def membership_mask(dates: pd.DatetimeIndex, symbols: list[str], lag_days: int = 1) -> pd.DataFrame:
     """True where symbol is an index member on date (membership effective lag_days trading days after the change)."""
     m = membership_intervals()
-    mask = pd.DataFrame(False, index=dates, columns=symbols)
     pos = {s: i for i, s in enumerate(symbols)}
-    arr = mask.to_numpy()
+    arr = np.zeros((len(dates), len(symbols)), dtype=bool)
     for _, r in m.iterrows():
         s = r["symbol"]
         if s not in pos:
