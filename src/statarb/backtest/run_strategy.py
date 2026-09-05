@@ -22,7 +22,7 @@ from statarb.config import REPO_ROOT, load_config
 from statarb.data.load import wide
 from statarb.execution.costs import CostParams
 from statarb.features.build import load_feature
-from statarb.portfolio.construct import apply_no_trade_band, beta_hedge, cap_weights, dollar_neutralize, enforce_limits, vol_target
+from statarb.portfolio.construct import apply_no_trade_band, beta_hedge, cap_weights, dollar_neutralize, enforce_limits, hysteresis_weights, vol_target
 from statarb.signals.reversal import decile_weights
 from statarb.statistics.metrics import summary_table
 
@@ -44,6 +44,9 @@ class StrategySpec:
     end: str | None = None
     label: str = "base"
     signal_lag_days: int = 0          # 1 = conservative daily-only proxy for MOC (signal from t-1 data, fill close t)
+    construction: str = "quantile"    # quantile | hysteresis
+    enter_pct: float = 0.2
+    exit_pct: float = 0.4
 
 
 def cost_params_from_config(execution: str, multiplier: float = 1.0, extra_bp: float = 0.0) -> CostParams:
@@ -74,9 +77,12 @@ def build_weights(spec: StrategySpec, feats: dict) -> pd.DataFrame:
         score = score.where(m)
     if spec.turnover_bucket == "high":
         score = -score  # continuation sleeve: buy high-turnover winners
-    w = decile_weights(score, n_deciles=spec.n_deciles) * (spec.gross / 2.0)
-    if spec.holding > 1:  # overlapping tranches: average of the last `holding` days' target books
-        w = w.rolling(spec.holding, min_periods=1).mean()
+    if spec.construction == "hysteresis":
+        w = hysteresis_weights(score, spec.enter_pct, spec.exit_pct, max_hold=spec.holding) * spec.gross
+    else:
+        w = decile_weights(score, n_deciles=spec.n_deciles) * (spec.gross / 2.0)
+        if spec.holding > 1:  # overlapping tranches: average of the last `holding` days' target books
+            w = w.rolling(spec.holding, min_periods=1).mean()
     w = cap_weights(w, spec.max_name)
     if "beta" in feats:
         w = beta_hedge(w, feats["beta"], "SPY")
@@ -97,6 +103,12 @@ def build_weights(spec: StrategySpec, feats: dict) -> pd.DataFrame:
 def run(spec: StrategySpec, feats: dict | None = None, cost_multiplier: float = 1.0, extra_bp: float = 0.0, write: bool = True) -> tuple[pd.DataFrame, dict]:
     if feats is None:
         feats = {k: load_feature(k) for k in ("ret", "eligible", "abn_turnover", f"score_k{spec.lookback}")}
+    if "vix" not in feats:
+        try:
+            v = pd.read_parquet(load_config("base").get("data_dir_default", "") and (__import__("statarb.data.load", fromlist=["PROC"]).PROC / "vix.parquet")).set_index("date")["vix"]
+            feats["vix"] = v
+        except Exception:
+            pass
     w = build_weights(spec, feats)
     if spec.signal_lag_days:
         w = w.shift(spec.signal_lag_days).fillna(0.0)

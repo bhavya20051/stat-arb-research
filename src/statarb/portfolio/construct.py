@@ -90,3 +90,34 @@ def enforce_limits(w: pd.DataFrame, gross_max: float = 2.0, net_abs_max: float =
             neg = row.clip(upper=0)
             out.loc[d] = row - neg / neg.sum() * adj[d]
     return out
+
+
+def hysteresis_weights(score: pd.DataFrame, enter_pct: float = 0.2, exit_pct: float = 0.4, max_hold: int = 5) -> pd.DataFrame:
+    """Rank-space hysteresis: open a long when the score's cross-sectional rank is in the top `enter_pct`
+    (short: bottom), keep it while the rank stays within the top/bottom `exit_pct`, force exit after `max_hold`
+    days or when the score is missing. Equal weights per side, dollar-neutral, gross = 1 (0.5 per side).
+    Uses only the score at t (ex-ante); state is path-dependent."""
+    rk = score.rank(axis=1, pct=True)
+    T, N = rk.shape
+    side = np.zeros(N)          # +1 long, -1 short, 0 flat
+    age = np.zeros(N, dtype=int)
+    out = np.zeros((T, N))
+    R = rk.to_numpy()
+    for t in range(T):
+        r = R[t]
+        valid = np.isfinite(r)
+        # exits
+        exit_long = (side > 0) & (~valid | (r < 1 - exit_pct) | (age >= max_hold))
+        exit_short = (side < 0) & (~valid | (r > exit_pct) | (age >= max_hold))
+        side[exit_long | exit_short] = 0
+        age[exit_long | exit_short] = 0
+        # entries
+        side[(side == 0) & valid & (r >= 1 - enter_pct)] = 1
+        side[(side == 0) & valid & (r <= enter_pct)] = -1
+        age[side != 0] += 1
+        nl = (side > 0).sum(); ns = (side < 0).sum()
+        if nl:
+            out[t, side > 0] = 0.5 / nl
+        if ns:
+            out[t, side < 0] = -0.5 / ns
+    return pd.DataFrame(out, index=score.index, columns=score.columns)
