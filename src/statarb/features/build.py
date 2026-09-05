@@ -33,7 +33,7 @@ def sector_map() -> dict[str, str]:
 def build(window: int = 120, zwin: int = 60) -> dict[str, pd.DataFrame]:
     cfg = load_config("base")
     sm = pd.read_csv(PROC / "security_master.csv")
-    close = wide("adjClose")
+    close = wide("adj_close")
     close_raw = wide("close")
     high, low, vol = wide("high"), wide("low"), wide("volume")
     ret = close.pct_change()

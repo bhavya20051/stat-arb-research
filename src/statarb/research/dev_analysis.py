@@ -28,7 +28,7 @@ def dev_slice(df: pd.DataFrame, sample: str = "secondary_daily") -> pd.DataFrame
 
 def run(sample: str = "secondary_daily") -> dict:
     OUT.mkdir(parents=True, exist_ok=True)
-    close = wide("adjClose")
+    close = wide("adj_close")
     resid = load_feature("resid")
     elig = load_feature("eligible")
     abn = load_feature("abn_turnover")

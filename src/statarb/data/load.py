@@ -1,6 +1,6 @@
 """Load processed data into wide frames (dates x symbols) and recompute adjustments independently.
 
-Adjustment policy: returns are computed from the vendor's split+dividend adjusted close ("adjClose") but are
+Adjustment policy: returns are computed from the vendor's split+dividend adjusted close ("adj_close") but are
 cross-checked against an adjustment factor recomputed from the raw close, the splits table and the dividends
 table (audit).  Fill prices for execution use the split-adjusted (not dividend-adjusted) series so that share
 counts and commissions are in real shares; P&L uses total returns via the adjusted series.

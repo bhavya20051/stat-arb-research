@@ -140,11 +140,18 @@ def pull_daily(c: FMPClient, symbols: list[str], start: str, end: str) -> pd.Dat
         full = _eod_frame(c.eod_full(s, start, end), s)
         if full.empty:
             continue
+        # VERIFIED 2026-09-05 on AAPL 2020-08-31 4:1 split: `full` = split-adjusted OHLCV (not dividend-adjusted);
+        # `non-split-adjusted` = raw as-traded prices/volume (fields adjOpen..adjClose); `dividend-adjusted` =
+        # split+dividend adjusted (total-return series).
         raw = _eod_frame(c.eod_unadjusted(s, start, end), s)
         if not raw.empty:
-            raw = raw.rename(columns={"open": "open_raw", "high": "high_raw", "low": "low_raw", "close": "close_raw",
-                                      "volume": "volume_raw"})
+            raw = raw.rename(columns={"adjOpen": "open_raw", "adjHigh": "high_raw", "adjLow": "low_raw",
+                                      "adjClose": "close_raw", "volume": "volume_raw"})
             full = full.merge(raw[["date", "open_raw", "high_raw", "low_raw", "close_raw", "volume_raw"]], on="date", how="left")
+        tr = _eod_frame(c.eod_div_adjusted(s, start, end), s)
+        if not tr.empty:
+            tr = tr.rename(columns={"adjClose": "adj_close", "adjOpen": "adj_open"})
+            full = full.merge(tr[["date", "adj_close", "adj_open"]], on="date", how="left")
         frames.append(full)
         d = pd.DataFrame(c.dividends(s) or [])
         if not d.empty:

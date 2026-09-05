@@ -39,8 +39,8 @@ def run_audit() -> str:
     big = (ret.abs() > 0.5)
     lines.append(f"- |daily return| > 50%: {int(big.sum().sum())} symbol-days (cross-checked against splits below).")
     # split consistency: adjClose/close ratio should be piecewise constant; jumps should coincide with splits/dividends
-    if "adjClose" in df.columns:
-        adj = wide("adjClose")
+    if "adj_close" in df.columns:
+        adj = wide("adj_close")
         ratio = (adj / close)
         jumps = (ratio / ratio.shift(1) - 1).abs() > 1e-6
         n_jumps = int(jumps.sum().sum())
