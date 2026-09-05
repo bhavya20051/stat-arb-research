@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import pandas as pd
 import json
 import subprocess
 import sys
@@ -46,7 +47,9 @@ def cmd_ingest(args):
     c = FMPClient()
     print("== membership ==")
     mem = ing.build_sp500_membership(c)
-    syms = sorted(set(mem["symbol"].dropna()))
+    cutoff = pd.Timestamp(cfg["secondary_daily"]["dev"]["start"])
+    live = mem[mem["end"].isna() | (pd.to_datetime(mem["end"]) >= cutoff)]
+    syms = sorted(set(live["symbol"].dropna()))
     print(f"symbols with membership intervals: {len(syms)}")
     print("== security master ==")
     ing.build_security_master(c, syms)
@@ -70,7 +73,7 @@ def main(argv=None):
     sub.add_parser("probe").set_defaults(fn=cmd_probe)
     pi = sub.add_parser("ingest")
     pi.add_argument("--intraday", action="store_true")
-    pi.add_argument("--intraday-start", default="2013-01-01")
+    pi.add_argument("--intraday-start", default="2005-01-01")
     pi.add_argument("--news", action="store_true")
     pi.set_defaults(fn=cmd_ingest)
     args = p.parse_args(argv)

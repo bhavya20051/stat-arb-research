@@ -165,22 +165,22 @@ def pull_daily(c: FMPClient, symbols: list[str], start: str, end: str) -> pd.Dat
     return px
 
 
-def pull_intraday(c: FMPClient, symbols: list[str], start: str, end: str, bars_needed=("15:30", "15:35", "15:40", "15:45", "15:50", "15:55")) -> None:
-    """5-min bars, pulled month by month, keeping the full day (all bars) in per-symbol parquet files.
-
-    FMP intraday responses are limited per request (UNVERIFIED span); monthly windows are safe."""
-    out_dir = PROC / "intraday_5min"
+def pull_intraday(c: FMPClient, symbols: list[str], start: str, end: str, window_days: int = 28) -> None:
+    """15-min bars (the 15:30 bar closes at 15:45 = same information as the 15:40 5-min bar), pulled in
+    28-calendar-day windows because one FMP request returns at most ~30 trading days (verified 2026-09-05).
+    Full days are kept in per-symbol parquet files."""
+    out_dir = PROC / "intraday_15min"
     out_dir.mkdir(exist_ok=True)
-    months = pd.period_range(start, end, freq="M")
+    edges = list(pd.date_range(start, end, freq=f"{window_days}D")) + [pd.Timestamp(end)]
     for i, s in enumerate(symbols):
         target = out_dir / f"{s}.parquet"
         if target.exists():
             continue
         frames = []
-        for m in months:
-            a = str(m.start_time.date())
-            b = str(min(m.end_time.date(), pd.Timestamp(end).date()))
-            rows = c.intraday_5min(s, a, b) or []
+        for a_ts, b_ts in zip(edges[:-1], edges[1:]):
+            a = str(a_ts.date())
+            b = str((b_ts - pd.Timedelta(days=1)).date()) if b_ts != edges[-1] else str(b_ts.date())
+            rows = c.get("historical-chart/15min", symbol=s, **{"from": a, "to": b}) or []
             if rows:
                 df = pd.DataFrame(rows)
                 df["ts"] = pd.to_datetime(df["date"])
