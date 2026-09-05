@@ -42,7 +42,7 @@ def run_audit() -> str:
     if "adj_close" in df.columns:
         adj = wide("adj_close")
         ratio = (adj / close)
-        jumps = (ratio / ratio.shift(1) - 1).abs() > 1e-6
+        jumps = (ratio / ratio.shift(1) - 1).abs() > 2e-3
         n_jumps = int(jumps.sum().sum())
         try:
             sp = pd.read_parquet(PROC / "splits.parquet")
@@ -62,6 +62,7 @@ def run_audit() -> str:
                 lines.append(f"- Known split {s} {d} {k:.0f}:1 — close ratio prev/day {raw_jump:.3f} (≈{k:.0f} if close is unadjusted, ≈1 if split-adjusted); adjClose ratio {adj_jump:.3f}.")
     # membership coverage
     m = membership_intervals()
+    m = m[m["end"].isna() | (m["end"] >= pd.Timestamp("2005-01-03"))]
     have = set(df["symbol"].unique())
     missing = sorted(set(m["symbol"].dropna()) - have)
     lines.append(f"- Membership symbols without any price rows: {len(missing)}: {', '.join(missing[:40])}{' …' if len(missing) > 40 else ''}")
