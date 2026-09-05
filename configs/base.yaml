@@ -1,0 +1,66 @@
+# Base research configuration (frozen design parameters; research parameters are set on DEV and recorded in the registry).
+project: statarb
+seed: 20260905
+data_dir_env: STATARB_DATA_DIR
+data_dir_default: "C:/Users/bhavy/statarb_data"
+timezone: "America/New_York"
+
+decision_time:
+  primary: "15:40"        # closing-auction model: signal from 5-min bars through the 15:40 bar (complete 15:45)
+  secondary: "16:00"      # daily-bar model: signal from close t, execute at open t+1
+
+execution:
+  primary: moc            # market-on-close, fill = official closing print of day t
+  secondary: moo          # market-on-open at t+1
+  variants: [moc, limit_order, moo]
+  moc_cutoff_nyse: "15:50"
+  moc_cutoff_nasdaq: "15:55"   # UNVERIFIED
+  fills_require_trade: true    # no fill on bars without a printed trade
+  same_bar_fills: false
+
+factors:
+  market: SPY
+  sectors: [XLB, XLE, XLF, XLI, XLK, XLP, XLU, XLV, XLY, XLRE, XLC]   # XLRE from 2015-10, XLC from 2018-06
+  vol_index: VIX
+  residual_model: rolling_ols
+  residual_window_days: 120
+  residual_alt_model: pca
+  pca_components: 3
+
+signal:
+  lookback_days_candidates: [1, 3, 5]
+  zscore_window_days: 60
+  holding_days: null       # set from the decay curve (H6) on DEV
+  tranches: overlapping    # 1/k rotating slices
+
+sleeves:
+  reversal: {turnover_bucket: low}
+  continuation: {turnover_bucket: high}
+  combination: equal_risk  # only if both pass DEV falsification tests
+
+regime_gating:
+  variable: VIX_lag1
+  forms: [none, step, linear]   # each a registered candidate
+
+portfolio:
+  capital_usd: 1000000
+  gross_max: 2.0
+  net_abs_max: 0.05
+  beta_abs_max: 0.10
+  sector_net_max: 0.10
+  max_name_weight: 0.02
+  min_positions_per_side: 40
+  vol_target_annual: 0.10
+  no_trade_band: 0.002
+  adv_participation_max: 0.01
+  auction_participation_max: 0.02
+
+filters:
+  min_price: 5.0
+  liquidity_window_days: 60
+  jump_exclusion_sigma: 3.0
+  jump_exclusion_days: 3
+  pre_earnings_exclusion: true
+  news_filter_tiers: [tier1_8k, tier2_articles]   # tier3 classifier is a robustness variant
+
+halt_on_bad_data: true

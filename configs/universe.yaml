@@ -1,0 +1,19 @@
+# Universe construction (pre-registered 2026-09-05). Point-in-time only.
+membership:
+  source: fmp_historical_sp500_constituents
+  cross_check: wikipedia_sp500_changes_table
+  effective_lag_trading_days: 1        # membership applies from the trading day after the change date
+security_master:
+  join_key: permanent_id                # never raw ticker
+  sources: [fmp_symbol_change, fmp_delisted_companies, fmp_profile, edgar_cik]
+liquidity_filter:
+  metric: median_dollar_volume
+  window_days: 60
+  computed_at: t_minus_1
+  min_price_usd: 5.0
+delisting_rules:
+  merger_or_exchange: last_exchange_price
+  bankruptcy_or_receivership: -1.00
+  unknown_reason: -0.30                 # Shumway (1997) convention; sensitivity +/-
+fills_require_printed_trade: true
+intraday_coverage_threshold_for_start: 0.80

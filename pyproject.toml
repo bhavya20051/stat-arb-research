@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "statarb"
+version = "0.1.0"
+description = "Residual short-term reversal research system: point-in-time data, leakage-free backtest, cost model, statistics, reporting"
+requires-python = ">=3.14"
+readme = "README.md"
+dependencies = [
+    "numpy==2.4.4",
+    "pandas==3.0.2",
+    "scipy==1.18.1",
+    "statsmodels==0.15.0",
+    "scikit-learn==1.9.0",
+    "matplotlib==3.11.1",
+    "pyarrow==25.0.1",
+    "pyyaml==6.0.3",
+    "requests==2.33.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==9.1.1", "hypothesis==6.167.1", "ruff"]
+cpp = ["ziglang==0.16.0"]
+fast = ["polars==1.44.1"]
+
+[project.scripts]
+statarb = "statarb.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 110
+target-version = "py314"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

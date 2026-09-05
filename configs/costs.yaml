@@ -1,0 +1,41 @@
+# Cost model (pre-registered 2026-09-05). Net results use this; gross results also reported.
+capital_scales_usd:
+  primary: 1000000
+  sensitivities: [100000, 10000000, 100000000]
+
+commissions:              # retail broker, tiered per-share (IBKR-style)
+  per_share_usd: 0.0035
+  min_per_order_usd: 0.35
+  max_pct_of_trade_value: 0.01
+
+regulatory_fees_on_sells:
+  sec_fee_rate_by_year: {}      # filled at M3 from published SEC Section 31 rates (UNVERIFIED until then)
+  finra_taf_per_share: null     # filled at M3
+  finra_taf_max_per_trade: null
+
+short_borrow:
+  general_collateral_annual: 0.005
+  hard_to_borrow_policy: exclude_or_flag
+
+spread_estimators:        # used for continuous-session fills (limit-order and MOO variants), not for MOC fills
+  basis: max_of
+  estimators: [corwin_schultz, abdi_ranaldo]
+  window_days: 21
+  negative_estimate_rule: set_to_zero_before_averaging
+  cap_bp: 100
+  liquidity_bucket_floor_bp: {top: 0.5, mid: 1.0, bottom: 2.0}
+
+impact:
+  model: square_root       # k * sigma_daily * sqrt(participation)
+  k: 1.0
+  continuous_participation_cap: 0.01
+  auction_participation_cap: 0.02
+
+limit_order_variant:
+  delta_sigma_candidates: [0.5, 1.0]
+  fill_rule: "bar low (high) trades through the limit by >= 1 tick + half estimated spread"
+  cancel_time: "15:45"
+
+sensitivity_multipliers: [1.0, 1.5, 2.0]
+extra_slippage_bp: [0, 5]
+report_break_even_cost: true

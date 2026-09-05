@@ -1,0 +1,33 @@
+# Sample partition (pre-registered 2026-09-05). Machine-readable twin of data/partitions.csv.
+# Rule: chronological only; no random K-fold anywhere; purge on the EARLIER side of each boundary.
+purge_trading_days: 10
+embargo_rule: ">= max(holding_period, feature_window)"
+primary_intraday:
+  dev:
+    start: null            # set at M2: earliest date with >= 80% PIT-universe 5-min coverage (expected 2013-01)
+    end: "2018-12-14"
+  val:
+    start: "2019-01-02"
+    end: "2022-12-15"
+    walk_forward: yearly_expanding
+  holdout:
+    start: "2023-01-03"
+    end: "2026-08-31"
+    locked: true
+    single_run: true
+secondary_daily:
+  dev:
+    start: "2005-01-03"    # or earliest available daily history if later
+    end: "2018-12-14"
+  val:
+    start: "2019-01-02"
+    end: "2022-12-15"
+  holdout:
+    start: "2023-01-03"
+    end: "2026-08-31"
+    locked: true
+forward:
+  start: "2026-09-08"
+fallback_if_history_short:
+  intraday: "STOP and report; do not improvise a split"
+  daily_lt_16y: "holdout = last 20% but >= 2y; val = next 20%; dev = rest; quarterly walk-forward"

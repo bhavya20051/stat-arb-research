@@ -1,0 +1,9 @@
+sample,partition,start_date,end_date,purge_trading_days_before_end,status,rule
+primary_intraday,DEV,TBD_M2,2018-12-14,10,pre-registered,"start = earliest date on which >= 80% of the point-in-time universe has 5-min bars (expected 2013-01); DEV ends 10 trading days before 2018-12-31 (purge)"
+primary_intraday,VAL,2019-01-02,2022-12-15,10,pre-registered,"yearly expanding walk-forward; VAL ends 10 trading days before 2022-12-30 (purge); used once as confirmation of DEV-frozen choices"
+primary_intraday,HOLDOUT,2023-01-03,2026-08-31,0,locked,"single batch run at M8 with frozen config; never inspected before; results immutable"
+secondary_daily,DEV,2005-01-03,2018-12-14,10,pre-registered,"daily-bar next-open model; start = 2005-01-03 or the earliest available daily history if later"
+secondary_daily,VAL,2019-01-02,2022-12-15,10,pre-registered,"same boundaries as primary"
+secondary_daily,HOLDOUT,2023-01-03,2026-08-31,0,locked,"same boundaries as primary"
+forward,FORWARD,2026-09-08,,0,separate,"paper-trading ledger; never merged with backtest statistics"
+FALLBACK_RULE,ALL,,,,pre-registered,"if the key's intraday history is shorter than required, STOP and report (no improvised split); if total history < 16y for the daily secondary: holdout = last 20% but >= 2y, VAL = next 20%, DEV = rest, quarterly walk-forward folds"

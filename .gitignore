@@ -1,0 +1,36 @@
+# secrets — never commit
+.env
+*.key
+.fmp_api_key
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.hypothesis/
+.venv/
+venv/
+
+# bulk data lives outside the repo (STATARB_DATA_DIR); keep manifests, keep small CSVs
+data/raw/
+data/processed/
+*.parquet
+*.feather
+*.h5
+
+# large result artifacts (keep tables/manifests; figures are regenerated)
+results/**/*.parquet
+results/**/*.pkl
+reports/figures/*.png
+
+# cpp build outputs
+cpp/build/
+*.o
+*.obj
+*.exe
+*.dll
+*.pdb
