@@ -39,3 +39,39 @@ Generated 2026-09-05 by `statarb.data.audit` from `C:\Users\bhavy\statarb_data\p
 | 2024 | 252 | 728 |
 | 2025 | 250 | 726 |
 | 2026 | 166 | 710 |
+
+## Survivorship gap (members without any FMP price history)
+
+112 of the 948 symbols with S&P 500 membership overlapping 2005+ have no price rows on FMP (mostly pre-2012 acquisitions and failures, e.g. BSC, CFC, ANR). Their absence biases the early development years; validation and holdout are unaffected.
+
+| Year | active members | without prices | gap % |
+|---|---|---|---|
+| 2005 | 505 | 81 | 16.0 |
+| 2006 | 521 | 79 | 15.2 |
+| 2007 | 526 | 73 | 13.9 |
+| 2008 | 530 | 63 | 11.9 |
+| 2009 | 522 | 55 | 10.5 |
+| 2010 | 512 | 48 | 9.4 |
+| 2011 | 515 | 45 | 8.7 |
+| 2012 | 513 | 37 | 7.2 |
+| 2013 | 515 | 30 | 5.8 |
+| 2014 | 510 | 24 | 4.7 |
+| 2015 | 521 | 24 | 4.6 |
+| 2016 | 527 | 12 | 2.3 |
+| 2017 | 524 | 9 | 1.7 |
+| 2018 | 519 | 6 | 1.2 |
+| 2019 | 517 | 2 | 0.4 |
+| 2020 | 516 | 0 | 0.0 |
+| 2021 | 520 | 0 | 0.0 |
+| 2022 | 519 | 0 | 0.0 |
+| 2023 | 519 | 0 | 0.0 |
+| 2024 | 527 | 0 | 0.0 |
+| 2025 | 529 | 0 | 0.0 |
+| 2026 | 523 | 0 | 0.0 |
+
+Handling: the gap is reported alongside every DEV result; the 2005–2011 DEV years are treated as lower-quality and the registry notes 'survivorship gap 9–16%' for tests that use them. The 2013+ intraday primary sample has a gap of ≤ 5.8%.
+
+## Open audit items
+- 28.8% of adjustment-ratio jumps do not coincide with a recorded split/dividend date (likely ex-date vs record-date conventions in FMP's dividends table); to be resolved before the report by matching within ±3 days.
+- FMP daily `open` provenance (auction print vs first trade) unverified; affects only the secondary next-open model.
+- 185 symbols lack a CIK in their FMP profile, so 8-K coverage is 763/948 symbols; the missing names are mostly delisted and will be mapped through EDGAR's company search.
