@@ -47,8 +47,11 @@ class FMPClient:
         params = {k: v for k, v in params.items() if v is not None}
         cp = self._cache_path(endpoint, params)
         if self.cache and cp.exists() and not refresh:
-            with open(cp, encoding="utf-8") as f:
-                return json.load(f)
+            try:
+                with open(cp, encoding="utf-8") as f:
+                    return json.load(f)
+            except (ValueError, OSError):
+                cp.unlink(missing_ok=True)  # corrupted/partial cache file: refetch
         q = dict(params)
         q["apikey"] = self._key
         for attempt in range(5):
@@ -69,8 +72,10 @@ class FMPClient:
                 except ValueError:
                     data = None
                 if self.cache:
-                    with open(cp, "w", encoding="utf-8") as f:
+                    tmp = cp.with_suffix(".tmp")
+                    with open(tmp, "w", encoding="utf-8") as f:
                         json.dump(data, f)
+                    tmp.replace(cp)  # atomic publish
                 return data
             if r.status_code in (429, 500, 502, 503, 504):
                 time.sleep(2**attempt + 1)
