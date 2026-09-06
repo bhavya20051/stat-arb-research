@@ -105,3 +105,11 @@ def test_event_weights_cohorts_and_neutrality():
     assert np.isclose(w.loc[idx[2], "A"], 0.5 / 3) and np.isclose(w.loc[idx[3], "A"], 0.0)  # held exactly 3 days
     assert np.isclose(w.loc[idx[1], "C"], 0.5 / 3) and np.isclose(w.loc[idx[1], "A"], 0.5 / 3)  # cohorts overlap
     assert w.loc[idx[5]].abs().sum() == 0.0
+
+
+def test_drawdown_scaler_is_ex_ante_and_releases():
+    from statarb.backtest.run_strategy import drawdown_scaler
+    r = pd.Series([0.0, -0.06, -0.06, 0.02, 0.05, 0.05, 0.0])  # dd: 0, -6%, -11.6%, -9.9%, -5.4%, -0.7%, -0.7%
+    m = drawdown_scaler(r, 0.10, 0.5, 0.05)
+    assert m.tolist()[:4] == [1.0, 1.0, 1.0, 0.5]   # trigger seen at t=2 -> multiplier applies from t=3 (ex-ante)
+    assert m.iloc[4] == 0.5 and m.iloc[6] == 1.0      # released once within 5% of peak (seen at t=5 -> applies t=6)

@@ -45,6 +45,8 @@ class StrategySpec:
     label: str = "base"
     signal_lag_days: int = 0          # 1 = conservative daily-only proxy for MOC (signal from t-1 data, fill close t)
     cost_profile: str = "market_maker"
+    gross_max: float = 3.0
+    drawdown_rule: bool = True
     beta_hedge: bool = True
     sector_neutral: bool = True
     pre_earnings_exclusion: bool = True
@@ -113,12 +115,12 @@ def build_weights(spec: StrategySpec, feats: dict) -> pd.DataFrame:
     if spec.vol_target_annual:
         port_ret_proxy = (w.shift(1) * feats["ret"].reindex_like(w).fillna(0)).sum(axis=1)
         est = port_ret_proxy.rolling(60, min_periods=20).std(ddof=1).shift(1) * np.sqrt(252)
-        w = vol_target(w, est, spec.vol_target_annual, max_lever=2.0)
+        w = vol_target(w, est, spec.vol_target_annual, max_lever=spec.gross_max)
     if spec.vix_gate != "none" and "vix" in feats:
         v = feats["vix"].shift(1).reindex(w.index)
         g = (v > v.rolling(252, min_periods=60).quantile(2 / 3)).astype(float) + 1.0 if spec.vix_gate == "step" else (v / v.rolling(252, min_periods=60).mean()).clip(0.5, 2.0)
         w = w.mul(g.fillna(1.0), axis=0)
-    w = enforce_limits(w, gross_max=2.0, net_abs_max=0.05)
+    w = enforce_limits(w, gross_max=spec.gross_max, net_abs_max=0.05)
     if spec.band:
         w = apply_no_trade_band(w, spec.band)
     return w.fillna(0.0)
@@ -176,6 +178,13 @@ def run(spec: StrategySpec, feats: dict | None = None, cost_multiplier: float = 
                        delist=feats.get("delist"))
     costs = cost_params_from_config(spec.execution, cost_multiplier, extra_bp, spec.cost_profile)
     out = run_backtest(inp, spec.capital, costs)
+    if spec.drawdown_rule:
+        cfg_dd = load_config("base")["portfolio"].get("drawdown_rule", {})
+        mult = drawdown_scaler(out["net_ret"], cfg_dd.get("trigger", 0.10), cfg_dd.get("scale", 0.5), cfg_dd.get("release", 0.05))
+        if (mult < 1.0).any():
+            inp.target_weights = w.mul(mult.reindex(w.index).fillna(1.0), axis=0)
+            out = run_backtest(inp, spec.capital, costs)
+            out["dd_multiplier"] = mult.reindex(out.index).fillna(1.0)
     summ = {"label": spec.label, "spec": spec.__dict__, "cost_multiplier": cost_multiplier,
             "gross": summary_table(out["gross_ret"]), "net": summary_table(out["net_ret"]),
             "avg_turnover": float(out["turnover"].mean()), "avg_gross_exposure": float(out["gross_exposure"].mean()),
@@ -188,3 +197,23 @@ def run(spec: StrategySpec, feats: dict | None = None, cost_multiplier: float = 
         with open(d / f"summary_{spec.label}.json", "w", encoding="utf-8") as f:
             json.dump(summ, f, indent=1, default=float)
     return out, summ
+
+
+def drawdown_scaler(net_ret: pd.Series, trigger: float = 0.10, scale: float = 0.5, release: float = 0.05) -> pd.Series:
+    """Exposure multiplier for day t computed from realized net returns through t-1 (ex-ante): halve exposure once the
+    cumulative P&L is more than `trigger` below its running peak; restore when back within `release` of the peak."""
+    cum = (1 + net_ret.fillna(0)).cumprod()
+    peak = cum.cummax()
+    dd = cum / peak - 1.0
+    mult = pd.Series(1.0, index=net_ret.index)
+    state = 1.0
+    vals = dd.to_numpy()
+    out = np.ones(len(vals))
+    for i in range(1, len(vals)):
+        d = vals[i - 1]  # information through t-1
+        if state == 1.0 and d < -trigger:
+            state = scale
+        elif state < 1.0 and d > -release:
+            state = 1.0
+        out[i] = state
+    return pd.Series(out, index=net_ret.index)

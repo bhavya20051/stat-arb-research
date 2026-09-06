@@ -44,7 +44,12 @@ regime_gating:
 
 portfolio:
   capital_usd: 1000000
-  gross_max: 2.0
+  # Leverage policy (RISK-1, 2026-09-05): 10% vol target, gross <= 3.0 (1.5x per side); sensitivities at 2.0 and 5.0.
+  # Sources: AIMA/Aurum (factor-neutral books 400-600% gross; conservative funds ~200%), Khandani & Lo (2007 unwind);
+  # prime-broker portfolio margin and SEC net-capital haircuts cap overnight equity books near 6x gross.
+  gross_max: 3.0
+  gross_sensitivities: [2.0, 5.0]
+  drawdown_rule: {trigger: 0.10, scale: 0.5, release: 0.05}   # halve exposure when >10% below peak; restore within 5% of peak
   net_abs_max: 0.05
   beta_abs_max: 0.10
   sector_net_max: 0.10
