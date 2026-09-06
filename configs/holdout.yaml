@@ -1,0 +1,55 @@
+frozen_at_utc: '2026-09-06T04:57:53.243142+00:00'
+git: 3f5d72b
+config_hash: 3e6f2ece72612684
+capital: 1000000.0
+holdout:
+  start: '2023-01-03'
+  end: '2026-08-31'
+  locked: true
+  single_run: true
+variants:
+- base
+- costs_x1.5
+- costs_x2.0
+- slippage_+5bp
+- signal_lag_+1day
+- profile_prime_brokered_fund
+- gross_max_2.0
+- gross_max_5.0
+- no_drawdown_rule
+- other_execution
+families:
+  earnings_drift:
+    status: frozen
+    id: C-moc-constructionevent-signalearnings_drift-lookback1-holding3-entry_z1.0-vix_gatenone-execmoc
+    params:
+      lookback: 1
+      holding: 3
+      entry_z: 1.0
+      vix_gate: none
+      exec: moc
+      construction: event
+      signal: earnings_drift
+    val_net_sharpe: 0.02897397193715356
+  event_reversal:
+    status: frozen
+    id: C-moc-constructionevent-lookback1-holding3-entry_z2.0-vix_gatenone-execloc1.0
+    params:
+      lookback: 1
+      holding: 3
+      entry_z: 2.0
+      vix_gate: none
+      exec: loc1.0
+      construction: event
+    val_net_sharpe: 0.49806330460391446
+  rank_reversal:
+    status: frozen
+    id: C-moc-lookback1-holding3-n_deciles5-vix_gatenone-execloc1.0
+    params:
+      lookback: 1
+      holding: 3
+      n_deciles: 5.0
+      vix_gate: none
+      exec: loc1.0
+    val_net_sharpe: 0.9274351958579322
+data_snapshot_sha256: fa95f55af79937b0
