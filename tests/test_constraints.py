@@ -100,11 +100,16 @@ def test_event_weights_cohorts_and_neutrality():
     sc = pd.DataFrame(0.0, index=idx, columns=["A", "B", "C", "D"])
     sc.loc[idx[0], ["A", "B"]] = [2.5, -2.5]   # one long, one short on day 0
     sc.loc[idx[1], "C"] = 3.0                   # one long on day 1
-    w = event_weights(sc, entry_z=2.0, holding=3, per_side_gross=0.5)
-    assert np.isclose(w.loc[idx[0], "A"], 0.5 / 3) and np.isclose(w.loc[idx[0], "B"], -0.5 / 3)
-    assert np.isclose(w.loc[idx[2], "A"], 0.5 / 3) and np.isclose(w.loc[idx[3], "A"], 0.0)  # held exactly 3 days
-    assert np.isclose(w.loc[idx[1], "C"], 0.5 / 3) and np.isclose(w.loc[idx[1], "A"], 0.5 / 3)  # cohorts overlap
-    assert w.loc[idx[5]].abs().sum() == 0.0
+    w = event_weights(sc, entry_z=2.0, holding=3, per_side_gross=0.5, max_name=0.05, ref_window=3)
+    # ref_window=3, min_periods=20 -> no expected count available on these few days -> zero weights (ex-ante rule)
+    assert w.abs().sum().sum() == 0.0
+    idx2 = pd.bdate_range("2020-01-01", periods=40)
+    sc2 = pd.DataFrame(0.0, index=idx2, columns=["A", "B", "C", "D"])
+    sc2.iloc[:, 0] = 2.5; sc2.iloc[:, 1] = -2.5          # one long and one short entrant every day
+    w2 = event_weights(sc2, entry_z=2.0, holding=3, per_side_gross=0.5, max_name=0.05, ref_window=30)
+    # expected entrants = 1 per side -> weight = min(0.05, 0.5/3) = 0.05 per cohort; 3 overlapping cohorts -> 0.15
+    assert np.isclose(w2.iloc[-1]["A"], 0.15) and np.isclose(w2.iloc[-1]["B"], -0.15)
+    assert np.isclose(w2.iloc[-1].sum(), 0.0)
 
 
 def test_drawdown_scaler_is_ex_ante_and_releases():

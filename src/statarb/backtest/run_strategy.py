@@ -99,7 +99,7 @@ def build_weights(spec: StrategySpec, feats: dict) -> pd.DataFrame:
     if spec.turnover_bucket == "high":
         score = -score  # continuation sleeve: buy high-turnover winners
     if spec.construction == "event":
-        w = event_weights(score, spec.entry_z, spec.holding, per_side_gross=spec.gross / 2.0)
+        w = event_weights(score, spec.entry_z, spec.holding, per_side_gross=spec.gross_max / 2.0, max_name=spec.max_name)
     elif spec.construction == "hysteresis":
         w = hysteresis_weights(score, spec.enter_pct, spec.exit_pct, max_hold=spec.holding) * spec.gross
     else:

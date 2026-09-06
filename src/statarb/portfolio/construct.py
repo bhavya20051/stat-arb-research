@@ -123,7 +123,8 @@ def hysteresis_weights(score: pd.DataFrame, enter_pct: float = 0.2, exit_pct: fl
     return pd.DataFrame(out, index=score.index, columns=score.columns)
 
 
-def event_weights(score: pd.DataFrame, entry_z: float = 2.0, holding: int = 3, per_side_gross: float = 0.5) -> pd.DataFrame:
+def event_weights(score: pd.DataFrame, entry_z: float = 2.0, holding: int = 3, per_side_gross: float = 0.5,
+                  max_name: float = 0.02, ref_window: int = 60) -> pd.DataFrame:
     """Event construction: on day t, every eligible name with score >= entry_z is bought and every name with
     score <= -entry_z is shorted; each day's cohort receives per_side_gross/holding per side, split equally among that
     day's entrants, and is held for exactly `holding` days with NO rebalancing (weights drift with price in the
@@ -131,16 +132,24 @@ def event_weights(score: pd.DataFrame, entry_z: float = 2.0, holding: int = 3, p
     S = score.to_numpy()
     T, N = S.shape
     out = np.zeros((T, N))
+    # fixed weight per position: budget per side per cohort divided by the EX-ANTE expected number of entrants
+    # (trailing ref_window-day mean of daily entry counts through t-1), capped at max_name.
+    n_long = np.array([(np.isfinite(r) & (r >= entry_z)).sum() for r in S], dtype=float)
+    n_short = np.array([(np.isfinite(r) & (r <= -entry_z)).sum() for r in S], dtype=float)
+    exp_long = pd.Series(n_long).rolling(ref_window, min_periods=20).mean().shift(1).to_numpy()
+    exp_short = pd.Series(n_short).rolling(ref_window, min_periods=20).mean().shift(1).to_numpy()
     for t in range(T):
         row = S[t]
         longs = np.isfinite(row) & (row >= entry_z)
         shorts = np.isfinite(row) & (row <= -entry_z)
         nl, ns = longs.sum(), shorts.sum()
         cohort = np.zeros(N)
+        wl = min(max_name, per_side_gross / holding / max(exp_long[t], 1.0)) if np.isfinite(exp_long[t]) else 0.0
+        ws = min(max_name, per_side_gross / holding / max(exp_short[t], 1.0)) if np.isfinite(exp_short[t]) else 0.0
         if nl:
-            cohort[longs] = per_side_gross / holding / nl
+            cohort[longs] = wl
         if ns:
-            cohort[shorts] = -per_side_gross / holding / ns
+            cohort[shorts] = -ws
         for k in range(holding):
             if t + k < T:
                 out[t + k] += cohort
