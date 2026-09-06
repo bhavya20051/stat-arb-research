@@ -75,19 +75,66 @@ def resting_limit_fills(target_w: pd.DataFrame, ref_intraday: pd.DataFrame, last
 
 
 def loc_fills(target_w: pd.DataFrame, p1545: pd.DataFrame, last_bar_close: pd.DataFrame, adj_close: pd.DataFrame,
-              sigma_intraday: pd.DataFrame, delta: float = 0.5) -> pd.DataFrame:
-    """Limit-on-close on day t: entries fill at the close only if the close is beyond p1545 by delta*sigma in the
-    order's favour; reductions fill MOC. Returns fill panel on the adj_close basis aligned to day t (engine lag=0)."""
+              sigma_intraday: pd.DataFrame, delta: float = 0.5, hedge_symbol: str | None = "SPY",
+              beta: pd.DataFrame | None = None, net_abs_max: float = 0.05,
+              return_effective: bool = False):
+    """Limit-on-close on day t (post-audit version, 2026-09-06; red-team findings F1 and F4).
+
+    * An *entry* is an increase in |weight| relative to the weight actually HELD after yesterday's fill decision
+      (not relative to yesterday's target): an entry whose LOC was cancelled stays an entry the next day and is
+      again submitted as an LOC order; it never degrades into an unconditional MOC fill.
+    * The LOC condition is evaluated on the OFFICIAL close: the 15:45 -> close move is the official close-to-close
+      return divided by the intraday return from yesterday's last bar to today's 15:45 price. A buy fills only if
+      the official close is at or below p1545 * (1 - delta*sigma); a sell only if at or above p1545 * (1 + delta*sigma).
+    * Reductions fill MOC. The hedge symbol (SPY) is never LOC-gated: after the fill decision the hedge is re-sized to
+      the FILLED stock book, -sum(w_filled * beta) (beta lagged, supplied by the caller; 1.0 if absent), and then
+      shifted so that the realized dollar-net of the whole book is inside +/- net_abs_max. It fills MOC.
+
+    Returns the fill panel (adj_close basis, NaN = cancelled) and, if return_effective, the post-decision target book
+    (cancelled entries carry the held weight; hedge column re-sized) which the engine should be given as targets.
+    """
     idx = target_w.index
-    prev = target_w.shift(1).fillna(0.0)
-    increase_long = (target_w > prev) & (target_w > 0)
-    increase_short = (target_w < prev) & (target_w < 0)
-    entry = increase_long | increase_short
-    p = p1545.reindex(index=idx, columns=target_w.columns)
-    lb = last_bar_close.reindex(index=idx, columns=target_w.columns)
-    sig = sigma_intraday.reindex(index=idx, columns=target_w.columns)
-    close_rel = lb / p - 1.0  # move from 15:45 to the close in intraday basis
-    ok = (increase_long & (close_rel <= -delta * sig)) | (increase_short & (close_rel >= delta * sig))
-    ac = adj_close.reindex(index=idx, columns=target_w.columns)
-    fill = ac.where(~entry | ok)
-    return fill
+    cols = list(target_w.columns)
+    N = len(cols)
+    W = target_w.fillna(0.0).to_numpy(dtype=float)
+    ac = adj_close.reindex(index=idx, columns=cols).to_numpy(dtype=float)
+    p = p1545.reindex(index=idx, columns=cols).to_numpy(dtype=float)
+    lb = last_bar_close.reindex(index=idx, columns=cols).to_numpy(dtype=float)
+    sig = sigma_intraday.reindex(index=idx, columns=cols).to_numpy(dtype=float)
+    ac_prev = np.vstack([np.full((1, N), np.nan), ac[:-1]])
+    lb_prev = np.vstack([np.full((1, N), np.nan), lb[:-1]])
+    with np.errstate(invalid="ignore", divide="ignore"):
+        close_rel = (ac / ac_prev) / (p / lb_prev) - 1.0     # 15:45 -> official close, on a common basis
+    hj = cols.index(hedge_symbol) if hedge_symbol in cols else None
+    B = beta.reindex(index=idx, columns=cols).fillna(0.0).to_numpy(dtype=float) if beta is not None else None
+    held = np.zeros(N)
+    W_eff = np.zeros_like(W)
+    fill = ac.copy()
+    for t in range(len(idx)):
+        tgt = W[t].copy()
+        if hj is not None:
+            tgt[hj] = 0.0
+        inc_long = (tgt > held) & (tgt > 0)
+        inc_short = (tgt < held) & (tgt < 0)
+        entry = inc_long | inc_short
+        cr = close_rel[t]
+        s = sig[t]
+        ok = (inc_long & (cr <= -delta * s)) | (inc_short & (cr >= delta * s))
+        cancel = entry & ~ok
+        eff = np.where(cancel, held, tgt)
+        fill[t, cancel] = np.nan
+        if hj is not None:
+            stock = eff.copy()
+            stock[hj] = 0.0
+            b = B[t] if B is not None else np.ones(N)
+            h = -float(np.nansum(stock * b))
+            net = float(np.nansum(stock)) + h
+            h -= net - float(np.clip(net, -net_abs_max, net_abs_max))
+            eff[hj] = h
+            fill[t, hj] = ac[t, hj]
+        W_eff[t] = eff
+        held = np.where(np.isfinite(fill[t]), eff, held)
+    fill_df = pd.DataFrame(fill, index=idx, columns=cols)
+    if return_effective:
+        return fill_df, pd.DataFrame(W_eff, index=idx, columns=cols)
+    return fill_df

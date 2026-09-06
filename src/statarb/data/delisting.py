@@ -27,6 +27,10 @@ def delisting_events(sample_end: str) -> dict[str, tuple[pd.Timestamp, float]]:
         hist = pd.read_csv(PROC / "sp500_history_raw.csv")
     except FileNotFoundError:
         hist = None
+    try:
+        sm = pd.read_csv(PROC / "security_master.csv").drop_duplicates("symbol").set_index("symbol")
+    except FileNotFoundError:
+        sm = None
     events = {}
     for sym, last_date in last.items():
         if last_date >= end - pd.Timedelta(days=7):
@@ -36,11 +40,12 @@ def delisting_events(sample_end: str) -> dict[str, tuple[pd.Timestamp, float]]:
             rr = hist[hist["removedTicker"] == sym]
             if not rr.empty:
                 reason_text = " ".join(rr["reason"].fillna("").astype(str))
-        if FAIL.search(reason_text):
-            r = -1.0
-        elif MA.search(reason_text):
-            r = 0.0
+        new_sym = str(sm.loc[sym, "new_symbol"]) if (sm is not None and sym in sm.index and pd.notna(sm.loc[sym, "new_symbol"])) else ""
+        if FAIL.search(reason_text) or (new_sym and new_sym.endswith("Q")):
+            r = -1.0          # bankruptcy / receivership / regulatory closure, or a post-bankruptcy 'Q' ticker
+        elif MA.search(reason_text) or new_sym:
+            r = 0.0           # acquisition, or a plain ticker change (the position is closed at the last price)
         else:
-            r = -0.30
+            r = -0.30         # other / unknown (pre-registered Shumway 1997 default)
         events[sym] = (last_date + pd.Timedelta(days=1), r)
     return events

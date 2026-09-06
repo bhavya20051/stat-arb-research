@@ -183,7 +183,9 @@ def run(spec: StrategySpec, feats: dict | None = None, cost_multiplier: float = 
             lag = 1
         else:
             sig_i = (last_bar / p1545 - 1.0).abs().rolling(60, min_periods=20).mean().shift(1)  # typical 15:45->close move
-            fill = loc_fills(w, p1545, last_bar, ac, sig_i, spec.limit_delta)
+            beta_lag = feats["beta"].reindex(index=w.index, columns=syms).shift(1) if (spec.beta_hedge and "beta" in feats) else None
+            fill, w = loc_fills(w, p1545, last_bar, ac, sig_i, spec.limit_delta, hedge_symbol="SPY" if spec.beta_hedge else None,
+                                beta=beta_lag, net_abs_max=0.05, return_effective=True)
             lag = 0
         mark = ac
     else:

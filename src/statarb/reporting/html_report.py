@@ -165,7 +165,54 @@ def build_report() -> Path:
                           "HOLDOUT net SR": hf.get("holdout_net_sharpe"), "HOLDOUT gross SR": hv.get("base", {}).get("gross_sharpe"), "HOLDOUT net ret/yr": hf.get("holdout_net_ann"), "HOLDOUT max DD": hf.get("holdout_max_dd"),
                           "VAL net SR (fund profile)": val_fund.get(fam, {}).get("net", {}).get("sharpe_ann"), "HOLDOUT net SR (fund profile)": hv.get("profile_prime_brokered_fund", {}).get("net_sharpe")})
     parts.append(_table(pd.DataFrame(summ_rows)))
-    P("<b>Locked holdout = 2023-01-03 → 2026-08-31, single run of the frozen configuration; validation = 2019-01-02 → 2022-12-15, one shot; development = 2005–2018.</b>")
+    P("<b>Locked holdout = 2023-01-03 → 2026-08-31, single pre-declared batch of the frozen configuration; validation = 2019-01-02 → 2022-12-15, one shot; development = 2005–2018 (see the audit notice below on the development window).</b>")
+
+    # ---- second table: prime-brokered-fund profile (same configurations, per-share broker fee, no exchange rebates)
+    H(3, "Prime-brokered-fund profile (same frozen configurations)")
+    P("Fee schedule (configs/costs.yaml): $0.0012 per share all-in through a prime broker, SEC 31 and FINRA TAF on sales, NSCC clearing, 0.3% borrow, the same Almgren impact on closing-auction volume, no exchange rebates. DEV figures come from the fund-profile rerun of the same 140-candidate grid (results/dev/grid/grid_results_prime_brokered_fund.csv); the robustness column is the fund-profile row of the kill-test suite on 2005–2022; the holdout column is the pre-declared fund-profile variant of the single holdout batch.")
+    fund_grid_p = RES / "dev" / "grid" / "grid_results_prime_brokered_fund.csv"
+    fund_grid = pd.read_csv(fund_grid_p).set_index("id") if fund_grid_p.exists() else None
+    fund_rows = []
+    for fam, s in val.items():
+        cid = sel.get(fam, {}).get("id")
+        hf = hold.get("families", {}).get(fam, {}) if hold else {}
+        hv = hf.get("variants", {}).get("profile_prime_brokered_fund", {}) if hf else {}
+        kt_p = RES / "robustness" / fam / "kill_tests.csv"
+        kt = pd.read_csv(kt_p).set_index("variant") if kt_p.exists() else None
+        rob = kt.loc["profile_prime_brokered_fund"] if (kt is not None and "profile_prime_brokered_fund" in kt.index) else None
+        g = fund_grid.loc[cid] if (fund_grid is not None and cid in fund_grid.index) else None
+        vf = val_fund.get(fam, {})
+        fund_rows.append({"strategy": fam, "DEV net SR (fund)": None if g is None else g["net_sr"], "DEV net ret/yr (fund)": None if g is None else g["net_ann"],
+                          "DEV cost bp/day (fund)": None if g is None else g["cost_bp"],
+                          "VAL net SR (fund)": vf.get("net", {}).get("sharpe_ann"), "VAL net ret/yr (fund)": vf.get("net", {}).get("ann_return"),
+                          "VAL max DD (fund)": vf.get("net", {}).get("max_drawdown"), "VAL cost bp/day (fund)": vf.get("cost_bp_per_day"),
+                          "DEV+VAL robustness net SR (fund)": None if rob is None else rob["net_sr"],
+                          "HOLDOUT net SR (fund)": hv.get("net_sharpe"), "HOLDOUT net ret/yr (fund)": hv.get("net_ann"), "HOLDOUT max DD (fund)": hv.get("max_dd")})
+    parts.append(_table(pd.DataFrame(fund_rows)))
+    P("Reading the two tables together: the fund profile costs about 0.07 bp/day more than the exchange-member profile at $1M (per-share fee $0.0012 vs $0.0008 plus no rebates), which moves net Sharpe by roughly 0.02–0.05; the difference between profiles is immaterial next to the difference between windows.")
+
+    # ---- audit notice and post-audit table
+    pa = _load_json(RES / "post_audit" / "post_audit_results.json") or {}
+    H(3, "Red-team audit notice (2026-09-06) — read before using any number above")
+    P("An independent, fresh-context red-team review (reports/RED_TEAM_AUDIT.md; 22 findings, 2 critical, 6 high) found that the pre-audit numbers in the two tables above were produced by code with four material defects: (F1) the SPY hedge and the net-exposure correction were themselves gated by the limit-on-close fill rule, so the realized book carried an unhedged market exposure with standard deviation 0.20 of capital (target 0.05) whose sign flipped with the closing tape — about half of the 2005–2022 gross P&L was the product of that exposure and the next day's market return; (F2) the development grid ran from 2005 although the pre-registered rule set the start at the first date with ≥80% intraday coverage (2013-10-23), and the selected configuration's net Sharpe is 1.55 on 2005–2011 versus −0.35 on 2012–2018; (F3) the 15:40 eligibility mask used the full-day residual of day t (an end-of-day quantity); (F4) 'limit-on-close' entries that were cancelled became unconditional market-on-close fills the next day, so only ~20% of entries were actually LOC fills. Further findings: delisting rules were implemented in the engine but never wired into the research runs (F15), pre-split dividends were mis-scaled on split-adjusted intraday series (F9), and several documents overclaimed ('beta-neutral', 'leakage-free', 'validation confirmed development almost exactly'). <b>The reviewer's classification: D for the positive DEV/VAL claims as originally stated; the negative holdout conclusion stands; after repairs the study is a research-quality C.</b> All four code defects plus F9 and F15 were repaired on 2026-09-06 (six new unit tests), the documents were corrected, and the whole pipeline was rerun; the results are below and in the audit section. <b>The locked holdout file was not touched and is not re-run</b>: the 2023–2026 numbers in the post-audit table are a labelled diagnostic of the repaired code, not a second holdout.")
+    if pa:
+        rows = []
+        for key, fr in pa.get("families", {}).items():
+            fam, tag = key.split("@")
+            vm, vf = fr.get("val_market_maker", {}), fr.get("val_prime_brokered_fund", {})
+            dm, dfu = fr.get("diag_2023_2026_market_maker", {}), fr.get("diag_2023_2026_prime_brokered_fund", {})
+            rows.append({"strategy": fam, "DEV window": pa["dev_windows"].get(tag), "selected id": fr["selected_id"].replace("C-moc-", ""),
+                         "DEV net SR": fr["dev"]["net_sr"], "DSR (DEV)": fr["multiple_testing"].get("dsr"), "DEV net SR 2012–18": fr["dev_era"].get("sr_2012_2018"),
+                         "VAL net SR (mm)": vm.get("net_sr"), "VAL net ret/yr (mm)": vm.get("net_ann"), "VAL SR ex-2020–21": vm.get("era", {}).get("sr_ex_2020_2021"),
+                         "VAL net SR (fund)": vf.get("net_sr"),
+                         "2023–26 net SR (mm, diagnostic)": dm.get("net_sr"), "2023–26 net ret/yr (mm)": dm.get("net_ann"), "2023–26 max DD": dm.get("max_dd"),
+                         "2023–26 net SR (fund)": dfu.get("net_sr"), "realized net-exposure std (VAL)": vm.get("exposures", {}).get("net_std"),
+                         "market-component share of gross (VAL)": vm.get("market_component", {}).get("share")})
+        H(3, "Post-audit results (repaired pipeline; mm = market-maker profile)")
+        parts.append(_table(pd.DataFrame(rows)))
+        P("Selection on each development window used the unchanged pre-specified rule (max DEV net Sharpe subject to gross ≤ 3, turnover ≤ 2.5, neighbour stability). The pre-registered window (2013-10-23 → 2018-12-14) is the primary; the 2005 window is shown because the pre-audit numbers were produced on it.")
+    else:
+        P("<i>Post-audit rerun pending (results/post_audit/post_audit_results.json not found).</i>")
     P("Interpretation and the A–D classification are in the Conclusion section; the headline figure is always the net-of-cost result on data not used for design.")
 
     # ---------------- research question, hypothesis, literature
@@ -225,6 +272,11 @@ def build_report() -> Path:
         P(f"Primary capital by the pre-specified rule (largest size keeping ≥ 90% of the peak net Sharpe): <b>${cap['primary_capital']/1e6:.0f}M</b>. Leverage policy: 10% volatility target, gross exposure ≤ 3×, ex-ante drawdown brake (halve at −10%, restore at −5%).")
 
     # ---------------- validation
+    cbp = RES / "dev" / "capacity_curve_by_profile.csv"
+    if cbp.exists():
+        H(3, "Capacity curve by cost profile (development sample, selected configuration, pre-audit code)")
+        parts.append(_table(pd.read_csv(cbp)))
+        P("Fees scale with traded shares and are flat per unit of capital; impact scales with participation in closing-auction volume raised to the 0.6 power, so it grows with size while the gross edge does not. That is why net Sharpe falls monotonically with capital under both profiles, and why the two profiles converge at large sizes where impact dominates. Caveat from the audit (F11): the participation caps in the config are not enforced in construction, so this curve is a cost-model extrapolation, not a constrained-size simulation.")
     H(2, "One-shot validation (2019-01-02 → 2022-12-15)")
     for fam, s in val.items():
         f = RES / "validation" / f"daily_VAL_{fam}.csv"
@@ -269,10 +321,142 @@ def build_report() -> Path:
     else:
         P("<b>Not yet run.</b> The holdout is opened once, after the configuration is frozen; the manifest (git hash, config hash, data-snapshot hash, timestamp) is recorded with the result.")
 
+    # ---------------- red-team audit and post-audit re-analysis
+    H(2, "Red-team audit (2026-09-06) and post-audit re-analysis")
+    P("Reviewer: an independent fresh-context agent with a hostile brief, read-only access to the repository and the processed data, and its own verification scripts (reports/RED_TEAM_AUDIT.md, verification log with 23 checks). Findings and their disposition:")
+    findings = [
+        ("F1", "CRITICAL", "SPY hedge and net-exposure correction gated by the LOC fill rule; realized net-exposure std 0.20 vs 0.05 target; ~53% of 2005–2022 gross P&L = net exposure × next-day SPY", "FIXED: hedge re-sized to the filled book and executed MOC, dollar-net clipped to ±5% after the fill decision (limit_orders.loc_fills); test asserts realized |net| ≤ band"),
+        ("F2", "CRITICAL", "DEV grid ran from 2005 although the pre-registered start was the first date with ≥80% intraday coverage; selected config SR 1.55 (2005–11) vs −0.35 (2012–18)", "FIXED: coverage table added; selection rerun on the pre-registered window 2013-10-23 → 2018-12-14 (primary) and on the 2005 window (for comparison); era decomposition reported for every window"),
+        ("F3", "HIGH", "15:40 eligibility used the full-day residual of day t (jump rule)", "FIXED: daily eligibility lagged one day plus an ex-ante partial-day jump rule at 15:45 (build_moc.ex_ante_eligibility); invariance test added"),
+        ("F4", "HIGH", "'LOC' entries classified against previous targets, so cancelled entries became unconditional MOC fills next day (37% of cancellations); fill condition on the intraday bar, not the official close", "FIXED: entries classified against held weights, cancelled entries are re-submitted as LOC, condition evaluated on the official close; fill rate and effective gross reported"),
+        ("F5", "HIGH", "Survivorship gap 16% (2005) → 1.2% (2018); 2008 failures missing from the panel; membership keyed on raw ticker", "DOCUMENTED / PARTLY ADDRESSED: the pre-registered window starts where the gap is 5.8% and falls to 1.2%; gap table shown with every result; permanent-id keying remains open"),
+        ("F6", "HIGH", "Overclaims in README, interview brief, résumé bullets, FINAL_DECISION ('beta-neutral', 'leakage-free', 'delisting rules applied', 'VAL confirmed DEV almost exactly')", "FIXED: documents rewritten from the post-audit numbers; era decomposition replaces the 'confirmed' sentence"),
+        ("F7", "HIGH", "DSR/PBO counted 72 rank-family candidates; ≥140 candidates and ~50 preview/ablation runs influenced the design (DSR 0.62 → 0.51 at N=140, 0.38 at N=300)", "DOCUMENTED: pooled-N DSR figures reported here; registry unchanged (nothing deleted)"),
+        ("F8", "HIGH", "Three cost/construction changes made on DEV after observing results (impact model, market-maker profile, pre-earnings exclusion off); holdout config hash describes a config the run did not use", "DOCUMENTED: pre-earnings-exclusion-ON and fund-profile variants are in every robustness table; the retail profile was dropped by the user's directive (target firms are market makers/funds) and is stated as such; StrategySpec defaults vs base.yaml drift recorded as open"),
+        ("F9", "MEDIUM", "Raw dividend subtracted from a split-adjusted intraday series (AAPL 2019-08-09 phantom +1.13%)", "FIXED: dividend rescaled to the intraday basis (build_moc.dividend_on_intraday_basis); test on the AAPL case"),
+        ("F10", "MEDIUM", "Sector labels not point-in-time; XLC/XLRE names silently ineligible before ETF inception", "OPEN (documented limitation)"),
+        ("F11", "MEDIUM", "Liquidity filter is a no-op; participation caps, min positions, sector-net and beta limits in base.yaml are not enforced; Tier-2 article filter never applied", "DOCUMENTED: capacity curve labelled as a cost extrapolation; constraints listed as not implemented; Tier-2 ablation remains a next step"),
+        ("F12", "MEDIUM", "P&L concentrated by era (2008; 2020–21) and by day (holdout ex-best-day SR 0.01)", "FIXED: yearly Sharpe, ex-2008, ex-2020–21 and ex-best-day reported for every window"),
+        ("F13", "MEDIUM", "Share counts derived from adjusted prices (commissions/TAF mis-scaled in early years; mostly conservative)", "OPEN"),
+        ("F14", "MEDIUM", "Best-tier auction fee assumed at $1M; SEC 31 rate constant", "DOCUMENTED (≈0.1 bp/day)"),
+        ("F15", "MEDIUM", "Delisting engine path never fed by the pipeline", "FIXED: delisting_events wired into load_feats; rules refined (post-bankruptcy 'Q' tickers → −100%, ticker changes → 0); test added"),
+        ("F16", "MEDIUM", "'Single run' should read 'single pre-declared batch of 30 runs'", "FIXED (wording)"),
+        ("F17", "MEDIUM", "Validation gate (net SR > 0) is vacuous", "DOCUMENTED; not applied retroactively"),
+        ("F18–F22", "LOW", "Reliability tolerance, 15:40 vs 15:45 label, config/doc drift, drawdown rule path, registration mechanics", "DOCUMENTED; decision time now stated as 15:45 with a 15:50 submission cutoff"),
+    ]
+    parts.append(_table(pd.DataFrame(findings, columns=["#", "severity", "finding (condensed)", "disposition"]), floatfmt="{}"))
+    if pa:
+        P(f"<b>Post-audit rerun.</b> Generated {pa.get('generated_utc','')[:19]} UTC with the repaired code. Feature panels rebuilt; delisting events wired ({'; '.join(f'{k}: {v}' for k, v in pa.get('loc_fill_stats', {}).items())}).")
+        for key, fr in pa.get("families", {}).items():
+            fam, tag = key.split("@")
+            H(3, f"{fam} — development window {pa['dev_windows'].get(tag)} → 2018-12-14")
+            P(f"Selected: <code>{fr['selected_id']}</code>; DEV net SR {fr['dev']['net_sr']:.2f} (gross {fr['dev']['gross_sr']:.2f}), DSR {fr['multiple_testing'].get('dsr', float('nan')):.2f}, PBO {fr['multiple_testing'].get('pbo_cscv') if fr['multiple_testing'].get('pbo_cscv') is not None else 'n/a'}; DEV era: 2005–11 {fr['dev_era'].get('sr_2005_2011')}, 2012–18 {fr['dev_era'].get('sr_2012_2018')}, ex-2008 {fr['dev_era'].get('sr_ex_2008')}.")
+            era_rows = []
+            for wname in ("val_market_maker", "val_prime_brokered_fund", "diag_2023_2026_market_maker", "diag_2023_2026_prime_brokered_fund"):
+                w = fr.get(wname, {})
+                if not w:
+                    continue
+                era_rows.append({"window/profile": wname, "net SR": w.get("net_sr"), "95% CI": f"{w['sharpe_ci95'][0]:.2f} .. {w['sharpe_ci95'][1]:.2f}", "gross SR": w.get("gross_sr"),
+                                 "net ret/yr": w.get("net_ann"), "net vol": w.get("net_vol"), "max DD": w.get("max_dd"), "turnover/day": w.get("turnover"), "cost bp/day": w.get("cost_bp"),
+                                 "SR ex-2020–21": w.get("era", {}).get("sr_ex_2020_2021"), "SR ex-best day": w.get("era", {}).get("sr_ex_best_day"),
+                                 "gross exp": w.get("exposures", {}).get("gross_mean"), "net-exp std": w.get("exposures", {}).get("net_std"),
+                                 "market-component share": w.get("market_component", {}).get("share"), "net SR ex-market": w.get("market_component", {}).get("net_sr_ex_market")})
+            parts.append(_table(pd.DataFrame(era_rows)))
+            yr = {}
+            for wname in ("val_market_maker", "diag_2023_2026_market_maker"):
+                yr.update(fr.get(wname, {}).get("era", {}).get("yearly_sr", {}))
+            yr = {**{k: v for k, v in fr["dev_era"].get("yearly_sr", {}).items()}, **yr}
+            if yr:
+                parts.append(fig_bar(pd.Series(yr), f"{fam} ({tag}): net Sharpe by year, DEV → VAL → 2023–26 diagnostic (market-maker profile)", f"pa_yearly_{fam}_{tag}"))
+            for wname in ("val", "diag_2023_2026"):
+                f = RES / "post_audit" / f"daily_{fam}_{tag}_market_maker_{wname}.csv"
+                if f.exists():
+                    d = pd.read_csv(f, index_col=0, parse_dates=True)
+                    parts.append(fig_equity(d, f"{fam} ({tag}) {wname}: gross vs net, repaired pipeline", f"pa_equity_{fam}_{tag}_{wname}"))
+        kt_p = RES / "post_audit" / "robustness" / "rank_reversal" / "kill_tests.csv"
+        if kt_p.exists():
+            H(3, "Post-audit robustness (rank reversal, pre-registered development window + validation)")
+            parts.append(_table(pd.read_csv(kt_p)))
+        cbp2 = RES / "post_audit" / "capacity_curve_by_profile.csv"
+        if cbp2.exists():
+            H(3, "Post-audit capacity curve by cost profile (pre-registered development window)")
+            parts.append(_table(pd.read_csv(cbp2)))
+    else:
+        P("<i>Post-audit rerun pending.</i>")
+
+    # ---------------- complete PM data set (post-audit, all families x both profiles)
+    fm = _load_json(RES / "post_audit" / "full_metrics.json") or {}
+    H(2, "Complete performance data set: three strategies × two institutional profiles (repaired pipeline)")
+    if fm:
+        P(f"Development windows: pre-registered {fm['dev_window'][0]} → {fm['dev_window'][1]} and, for comparison, 2005-01-03 → {fm['dev_window'][1]} (each family is shown with the configuration selected on each window); validation {fm['val_window'][0]} → {fm['val_window'][1]}, diagnostic {fm['diagnostic_window'][0]} → {fm['diagnostic_window'][1]} (not a holdout; see the audit notice). Capital ${fm['capital']/1e6:.0f}M, 10% vol target, gross ≤ 3×, drawdown brake. Every statistic is computed from the daily net return series of the run (results/post_audit/daily_full_*.csv).")
+        def _row(fam, prof, wname, d):
+            n, g = d["net"], d["gross"]
+            return {"strategy": fam, "profile": prof, "window": wname, "net ret/yr": n["ann_return"], "net vol": n["ann_vol"], "net SR": n["sharpe_ann"],
+                    "SR 95% CI": f"{d['sharpe_ci95_ann'][0]:.2f} .. {d['sharpe_ci95_ann'][1]:.2f}", "SR SE (Lo)": n.get("sharpe_se_autocorr_ann"), "gross SR": g["sharpe_ann"],
+                    "Sortino": n.get("sortino_ann"), "Calmar": n.get("calmar"), "max DD": d["max_drawdown"], "longest DD (days)": d["longest_drawdown_days"], "time in DD": d["time_in_drawdown"],
+                    "hit rate": n.get("hit_rate"), "profit factor": n.get("profit_factor"), "% +months": d["pct_positive_months"], "skew": n.get("skew"), "kurtosis": n.get("kurtosis"), "PSR>0": n.get("psr_vs_zero"),
+                    "gross exp": d["avg_gross_exposure"], "net exp mean": d["avg_net_exposure"], "net exp std": d["net_exposure_std"], "beta SPY": d["beta_to_spy"],
+                    "mkt-component share": d["market_component_share"], "SR ex-market": d["net_sharpe_ex_market"], "turnover/day": d["turnover_per_day"], "cost bp/day": d["cost_bp_total"],
+                    "fees bp": d["cost_bp_per_day"].get("commission"), "reg+clearing bp": d["cost_bp_per_day"].get("fees"), "impact bp": d["cost_bp_per_day"].get("impact"), "borrow bp": d["cost_bp_per_day"].get("borrow"),
+                    "best day": f"{d['best_day'][0]} {d['best_day'][1]*100:+.2f}%", "worst day": f"{d['worst_day'][0]} {d['worst_day'][1]*100:+.2f}%", "n days": n["n_days"]}
+        rows = []
+        for key, fr in fm["families"].items():
+            fam, tag = key.split("@")
+            for prof, pr in fr["profiles"].items():
+                for wname in ("dev", "val", "diag_2023_2026"):
+                    rows.append({**_row(fam, prof, wname, pr[wname]), "DEV window": fr["dev_window"][0]})
+        parts.append(_table(pd.DataFrame(rows)))
+        for key, fr in fm["families"].items():
+            fam, tag = key.split("@")
+            H(3, f"{fam} (selected on {fr['dev_window'][0]} → {fr['dev_window'][1]}): <code>{fr['selected_id'].replace('C-moc-', '')}</code> — DSR {fr['multiple_testing'].get('dsr', float('nan')):.2f}, PBO {fr['multiple_testing'].get('pbo_cscv') if fr['multiple_testing'].get('pbo_cscv') is not None else 'n/a'}")
+            yrows = []
+            for prof, pr in fr["profiles"].items():
+                yr = {}
+                for wname in ("dev", "val", "diag_2023_2026"):
+                    yr.update(pr[wname]["yearly_net"])
+                yrows.append({"profile": prof, **{k: v for k, v in sorted(yr.items())}})
+            P("Net return by calendar year (fraction of capital):")
+            parts.append(_table(pd.DataFrame(yrows), floatfmt="{:+.3f}"))
+            srr = []
+            for prof, pr in fr["profiles"].items():
+                yr = {}
+                for wname in ("dev", "val", "diag_2023_2026"):
+                    yr.update({k: v for k, v in pr[wname]["yearly_sharpe"].items()})
+                srr.append({"profile": prof, **{k: v for k, v in sorted(yr.items())}})
+            P("Net Sharpe by calendar year:")
+            parts.append(_table(pd.DataFrame(srr), floatfmt="{:.2f}"))
+            mm = fr["profiles"]["market_maker"]
+            monthly = {}
+            for wname in ("dev", "val", "diag_2023_2026"):
+                monthly.update(mm[wname]["monthly_net"])
+            ms = pd.Series(monthly)
+            ms.index = pd.to_datetime(ms.index)
+            heat = ms.groupby([ms.index.year, ms.index.month]).sum().unstack()
+            heat.columns = [f"{m:02d}" for m in heat.columns]
+            P("Monthly net returns, market-maker profile (rows = years):")
+            parts.append(_table((heat * 100).round(2).rename_axis("year").reset_index(), floatfmt="{:+.2f}"))
+            for prof, pr in fr["profiles"].items():
+                kt = pd.DataFrame(pr["kill_tests"])
+                if not kt.empty:
+                    P(f"Kill tests, {prof} profile, development + validation ({fr['dev_window'][0]} → {fm['val_window'][1]}):")
+                    parts.append(_table(kt))
+                capd = pd.DataFrame(pr["capacity"])
+                if not capd.empty:
+                    P(f"Capacity curve, {prof} profile, development window:")
+                    parts.append(_table(capd))
+            for prof in ("market_maker",):
+                for wname in ("val", "diag_2023_2026"):
+                    f = RES / "post_audit" / f"daily_full_{key}_{prof}_{wname}.csv"
+                    if f.exists():
+                        d = pd.read_csv(f, index_col=0, parse_dates=True)
+                        parts.append(fig_equity(d, f"{fam} [{tag}] ({prof}) {wname}: gross vs net", f"paf_equity_{key}_{prof}_{wname}"))
+    else:
+        P("<i>results/post_audit/full_metrics.json not found; run statarb.research.run_post_audit_full.</i>")
+
     # ---------------- discussion
     H(2, "Discussion: what worked, what did not, failure modes, limitations")
-    P("<b>Outcome.</b> Classification <b>C — research-quality negative result</b>: the frozen rank-reversal configuration earned a net Sharpe of 0.93 on the 2019–2022 validation window but 0.16 (95% CI −1.06 .. 1.46; gross 0.26) on the locked 2023–2026 holdout; the event and earnings-drift families were at or below zero. The failure is a decay of the gross edge in a calm regime, not a cost or parameter artefact: costs in the holdout were 0.35 bp/day, the validation result matched development almost exactly, neighbours and placebo behaved as expected. See reports/FINAL_DECISION.md.")
-    P("<b>What the evidence supports.</b> A day-one, no-news residual reversal in large caps with a gross Sharpe around 1 on the development sample; the premium rises with lagged VIX; news (earnings-8-K) movers continue rather than reverse; auction-based execution captures the day-one effect where next-open execution does not; a limit-on-close entry filter raises net Sharpe by trading only into persistent closing pressure.")
+    P("<b>Outcome.</b> Classification <b>C — research-quality negative result</b>, reached twice: by the frozen pipeline on the locked holdout (net Sharpe 0.16, 95% CI −1.06 .. 1.46) and, after the red-team audit, by the repaired pipeline on every window (post-audit tables above). The pre-audit development and validation Sharpes (0.89 / 0.93) are withdrawn as evidence of an edge: roughly half of that gross P&L was an unintended market-timing exposure created by the fill rule, the development window violated its own pre-registration and the number rested on 2005–2011, and the validation number rested on 2020–2021 (ex-2020–21: −0.82). See reports/RED_TEAM_AUDIT.md and reports/FINAL_DECISION.md.")
+    P("<b>What the evidence supports.</b> A day-one, no-news residual reversal existed in the 2005–2011 large-cap panel and reappeared in the 2020–2021 stress period; it rises with lagged VIX; earnings-8-K movers continue rather than reverse; auction fills matter because the edge is a few basis points. It does not support a tradeable edge at this horizon in this universe after 2012 under either cost profile.")
     P("<b>What did not work.</b> Next-day resting limit orders (adverse selection, day one forfeited); rank-hysteresis and weight bands (turnover is intrinsic to a one-day signal); range-based spread estimators as a cost basis for large caps (ten times quoted spreads); the pre-registered sqrt/k=1 impact model (14× the published estimate, corrected before validation); the pre-earnings exclusion (costs gross Sharpe with no drawdown benefit on DEV).")
     P("<b>Failure modes.</b> Earnings-type shocks inside the holding window; stress episodes where reversal fails (2007, 2020); crowding; and, above all, cost per unit of turnover: the edge is a few basis points per day and the book turns over roughly once every 1.5 days, so net results are decided by fees and impact, not by signal parameters. Capacity is bounded by closing-auction volume.")
     P("<b>Limitations.</b> Survivorship gap of 16% of members in 2005 falling to 0% after 2020 (no price history for some delisted names); intraday coverage 782 of 949 names; no historical quote data (auction fills assumed at the official close with a participation cost); sector labels not point-in-time; SEC 31 rates applied at the current level; Chan (2003) unverified; the effect has weakened since 2011 and the holdout is the toughest regime.")

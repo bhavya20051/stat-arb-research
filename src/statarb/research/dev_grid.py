@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 from statarb.backtest.run_strategy import StrategySpec, run
-from statarb.config import REPO_ROOT
+from statarb.config import REPO_ROOT, load_config
 from statarb.features.build import load_feature
 from statarb.features.build_moc import load_moc
 from statarb.research.registry import _read, record, register
@@ -68,12 +68,20 @@ def load_feats() -> dict:
             feats[extra if extra != "beta_spy" else "beta"] = load_moc(extra)
         except FileNotFoundError:
             pass
+    # Post-audit (F15): the pre-registered delisting rules are applied in every research run (they were implemented
+    # in the engine but never fed by the pipeline before 2026-09-06).
+    try:
+        from statarb.data.delisting import delisting_events
+        feats["delist"] = delisting_events(load_config("splits")["primary_intraday"]["holdout"]["end"])
+    except Exception as e:  # noqa: BLE001
+        print("delisting events unavailable:", e)
     return feats
 
 
-def run_grid(dev_end: str = "2018-12-14", write_rows: bool = True, cost_profile: str = "market_maker") -> pd.DataFrame:
+def run_grid(dev_end: str = "2018-12-14", write_rows: bool = True, cost_profile: str = "market_maker",
+             dev_start: str | None = None, tag: str = "", feats: dict | None = None) -> pd.DataFrame:
     OUT.mkdir(parents=True, exist_ok=True)
-    feats = load_feats()
+    feats = feats or load_feats()
     existing = {r["experiment_id"] for r in _read()}
     rows, series = [], {}
     combos = [dict(zip(GRID.keys(), c)) for c in itertools.product(*GRID.values())]
@@ -93,7 +101,7 @@ def run_grid(dev_end: str = "2018-12-14", write_rows: bool = True, cost_profile:
         ex = d["exec"]
         kw = {k: v for k, v in d.items() if k != "exec"}
         spec = StrategySpec(execution="loc" if ex.startswith("loc") else "moc", limit_delta=float(ex[3:]) if ex.startswith("loc") else 0.5,
-                            band=0.0, end=dev_end, label=cid, cost_profile=cost_profile, **kw)  # kw may include construction="event", entry_z
+                            band=0.0, start=dev_start, end=dev_end, label=cid, cost_profile=cost_profile, **kw)  # kw may include construction="event", entry_z
         out, s = run(spec, feats, write=False)
         series[cid] = out["net_ret"]
         r = {"id": cid, **d, "gross_sr": s["gross"]["sharpe_ann"], "net_sr": s["net"]["sharpe_ann"],
@@ -105,7 +113,7 @@ def run_grid(dev_end: str = "2018-12-14", write_rows: bool = True, cost_profile:
                    "PASS" if r["net_sr"] > 0 else "FAIL (net <= 0)")
         print(f"{cid}: gross {r['gross_sr']:.2f} net {r['net_sr']:.2f} turn {r['turnover']:.2f} cost {r['cost_bp']:.1f}")
     df = pd.DataFrame(rows).sort_values("net_sr", ascending=False)
-    suffix = "" if cost_profile == "market_maker" else f"_{cost_profile}"
+    suffix = ("" if cost_profile == "market_maker" else f"_{cost_profile}") + (f"_{tag}" if tag else "")
     df.to_csv(OUT / f"grid_results{suffix}.csv", index=False)
     pd.DataFrame(series).to_parquet(OUT / f"grid_net_returns{suffix}.parquet")
     return df

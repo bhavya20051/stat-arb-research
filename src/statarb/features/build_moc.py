@@ -33,11 +33,15 @@ def build(lookbacks=(1, 2, 3), decision_time: str = "15:40") -> dict[str, pd.Dat
     # decision-time prices and the previous day's last-bar close, both from the intraday series (same basis).
     p1545 = decision_price_panel(stocks + etfs, "15:30", "close")
     last_bar = decision_price_panel(stocks + etfs, "15:45", "close").reindex(p1545.index)
-    # dividend adjustment on ex-dates (known in advance): prev_close_adj = prev_close - dividend
+    # dividend adjustment on ex-dates (known in advance): prev_close_adj = prev_close - dividend.
+    # Post-audit (F9): the raw cash dividend is rescaled to the basis of the intraday series (split-adjusted for some
+    # symbols) using yesterday's intraday-close / raw-close ratio, so a pre-split dividend is not subtracted at full
+    # size from a split-adjusted price.
     try:
         dv = pd.read_parquet(PROC / "dividends.parquet")
         dv["date"] = pd.to_datetime(dv["date"])
-        div = dv.pivot_table(index="date", columns="symbol", values="dividend", aggfunc="sum").reindex(index=p1545.index, columns=p1545.columns).fillna(0.0)
+        div_raw = dv.pivot_table(index="date", columns="symbol", values="dividend", aggfunc="sum").reindex(index=p1545.index, columns=p1545.columns).fillna(0.0)
+        div = dividend_on_intraday_basis(div_raw, last_bar, wide("close_raw").reindex(index=p1545.index, columns=p1545.columns))
     except FileNotFoundError:
         div = 0.0
     # moc_score divides by basis.shift(1); we want yesterday's last-bar close minus today's ex-dividend, so pre-shift:
@@ -69,7 +73,10 @@ def build(lookbacks=(1, 2, 3), decision_time: str = "15:40") -> dict[str, pd.Dat
     agree = ((r_int - r_day).abs() <= 0.01).where(r_int.notna() & r_day.notna())
     reliability = agree.rolling(60, min_periods=30).mean().shift(1)
     feats["intraday_reliability"] = reliability
-    base = (elig[have].reindex(idx).fillna(False) & p1545[have].reindex(idx).notna()
+    # Post-audit (F3): the daily `eligible` panel at t uses the full-day residual of t (jump rule), which is not known
+    # at 15:45. Use it lagged one day and add the ex-ante partial-day jump rule (|score_k1| < 3 sigma at 15:45).
+    elig_1545 = ex_ante_eligibility(elig[have].reindex(idx), feats["score_moc_k1"], n_sigma=3.0)
+    base = (elig_1545 & p1545[have].reindex(idx).notna()
             & sane.fillna(False) & (reliability >= 0.95).fillna(False))
     feats["eligible_base"] = base          # data-quality eligibility WITHOUT the news exclusion (drift strategy)
     feats["eligible_moc"] = base & ~flag   # reversal strategies: no-news names only
@@ -116,3 +123,21 @@ def build(lookbacks=(1, 2, 3), decision_time: str = "15:40") -> dict[str, pd.Dat
 
 def load_moc(name: str) -> pd.DataFrame:
     return pd.read_parquet(OUT / f"{name}.parquet")
+
+
+def ex_ante_eligibility(elig_daily: pd.DataFrame, score_k1: pd.DataFrame, n_sigma: float = 3.0) -> pd.DataFrame:
+    """Eligibility known at 15:45 on day t: the daily eligibility panel of day t-1 (membership, price, jump rule over
+    residuals through t-1) intersected with the partial-day jump rule |z_partial(t)| < n_sigma. Nothing from the close
+    of day t enters."""
+    lagged = elig_daily.shift(1).fillna(False).astype(bool)
+    z = score_k1.reindex_like(elig_daily)
+    return lagged & (z.abs() < n_sigma).fillna(False)
+
+
+def dividend_on_intraday_basis(div_raw: pd.DataFrame, last_bar_close: pd.DataFrame, close_raw: pd.DataFrame) -> pd.DataFrame:
+    """Rescale a raw cash dividend (per share, unadjusted) to the price basis of the intraday series: multiply by
+    yesterday's (intraday last-bar close / raw daily close). Ratio 1 if the intraday series is raw, 1/split factor if it
+    is split-adjusted; missing ratios fall back to 1."""
+    ratio = (last_bar_close.shift(1) / close_raw.shift(1).replace(0.0, np.nan)).reindex_like(div_raw)
+    ratio = ratio.where(np.isfinite(ratio) & (ratio > 0), 1.0)
+    return (div_raw * ratio).fillna(0.0)

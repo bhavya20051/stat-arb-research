@@ -81,3 +81,13 @@ Range-based spread estimates (Corwin–Schultz / Abdi–Ranaldo, 21-day) give a 
 
 ## Membership cross-check vs Wikipedia (2026-09-05)
 Current 503 constituents identical in FMP and Wikipedia; 'date added' agrees exactly for 98.2% of names (99.0% within 7 days). The remaining differences are the GOOG/GOOGL share-class listing dates and DowDuPont's 2019 reorganisation. Wikipedia no longer publishes the historical change table, so historical membership relies on FMP's change list (registry UNIV-1).
+
+## Intraday coverage of the point-in-time universe by year (added 2026-09-06 after the red-team audit, finding F2/F20)
+
+Share of S&P 500 member-days with a 15:45 intraday price (denominator = all members, including names with no intraday history at all):
+
+| Year | 2005 | 2006 | 2007 | 2008 | 2009 | 2010 | 2011 | 2012 | 2013 | 2014 | 2015 | 2016 | 2017 | 2018 | 2019 | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Coverage | 0.65 | 0.67 | 0.68 | 0.70 | 0.72 | 0.75 | 0.76 | 0.77 | 0.79 | 0.81 | 0.83 | 0.86 | 0.88 | 0.89 | 0.91 | 0.94 | 0.95 | 0.96 | 0.98 | 0.98 | 0.98 | 0.99 |
+
+The pre-registered rule (configs/splits.yaml: development starts at the first date with >= 80% coverage) resolves to **2013-10-23** (first date on which the trailing 60-day mean coverage reaches 0.80). The pre-audit development grid nevertheless ran from 2005-01-03; the post-audit re-analysis (results/post_audit) uses 2013-10-23 as the primary development start and reports the 2005 window alongside for comparison. Over 2005-2013 the survivorship gap (members with no price history) is 16% -> 5.8%, which is a second reason not to select on those years.

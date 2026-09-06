@@ -4,7 +4,7 @@ purge_trading_days: 10
 embargo_rule: ">= max(holding_period, feature_window)"
 primary_intraday:
   dev:
-    start: null            # set at M2: earliest date with >= 80% PIT-universe 5-min coverage (expected 2013-01)
+    start: "2013-10-23"    # resolved 2026-09-06 (post-audit): first date with trailing-60-day intraday coverage >= 0.80 (06_DATA_AUDIT.md). NOTE: the pre-audit grid ran from 2005-01-03 while this was null; the frozen holdout manifest hashed the null version.
     end: "2018-12-14"
   val:
     start: "2019-01-02"
