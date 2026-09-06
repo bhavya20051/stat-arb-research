@@ -1,0 +1,22 @@
+{
+ "vix_regimes": {
+  "low_vix": {
+   "net_sharpe": 0.050725674031030135,
+   "days": 780
+  },
+  "mid_vix": {
+   "net_sharpe": 0.5360133634895514,
+   "days": 629
+  },
+  "high_vix": {
+   "net_sharpe": -0.23402043613384096,
+   "days": 755
+  }
+ },
+ "concentration": {
+  "base_sr": -0.017898221757635658,
+  "drop_best_day": -0.10422679687679409,
+  "drop_best_week": -0.10477426001221773,
+  "drop_best_month": -0.1142407194477186
+ }
+}

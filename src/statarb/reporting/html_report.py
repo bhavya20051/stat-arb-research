@@ -391,7 +391,10 @@ def build_report() -> Path:
         P(f"Development windows: pre-registered {fm['dev_window'][0]} → {fm['dev_window'][1]} and, for comparison, 2005-01-03 → {fm['dev_window'][1]} (each family is shown with the configuration selected on each window); validation {fm['val_window'][0]} → {fm['val_window'][1]}, diagnostic {fm['diagnostic_window'][0]} → {fm['diagnostic_window'][1]} (not a holdout; see the audit notice). Capital ${fm['capital']/1e6:.0f}M, 10% vol target, gross ≤ 3×, drawdown brake. Every statistic is computed from the daily net return series of the run (results/post_audit/daily_full_*.csv).")
         def _row(fam, prof, wname, d):
             n, g = d["net"], d["gross"]
-            return {"strategy": fam, "profile": prof, "window": wname, "net ret/yr": n["ann_return"], "net vol": n["ann_vol"], "net SR": n["sharpe_ann"],
+            g_exp = d["avg_gross_exposure"] or 0.0
+            return {"strategy": fam, "profile": prof, "window": wname, "net ret/yr (as run)": n["ann_return"], "avg gross (leverage used)": g_exp,
+                    "unlevered ret/yr (per 1x gross)": (n["ann_return"] / g_exp if g_exp > 1e-6 else None), "ret/yr at 10% vol (linear)": (n["ann_return"] * 0.10 / n["ann_vol"] if n["ann_vol"] > 1e-9 else None),
+                    "gross needed for 10% vol": (g_exp * 0.10 / n["ann_vol"] if n["ann_vol"] > 1e-9 else None), "net vol (as run)": n["ann_vol"], "net SR": n["sharpe_ann"],
                     "SR 95% CI": f"{d['sharpe_ci95_ann'][0]:.2f} .. {d['sharpe_ci95_ann'][1]:.2f}", "SR SE (Lo)": n.get("sharpe_se_autocorr_ann"), "gross SR": g["sharpe_ann"],
                     "Sortino": n.get("sortino_ann"), "Calmar": n.get("calmar"), "max DD": d["max_drawdown"], "longest DD (days)": d["longest_drawdown_days"], "time in DD": d["time_in_drawdown"],
                     "hit rate": n.get("hit_rate"), "profit factor": n.get("profit_factor"), "% +months": d["pct_positive_months"], "skew": n.get("skew"), "kurtosis": n.get("kurtosis"), "PSR>0": n.get("psr_vs_zero"),
@@ -406,6 +409,7 @@ def build_report() -> Path:
                 for wname in ("dev", "val", "diag_2023_2026"):
                     rows.append({**_row(fam, prof, wname, pr[wname]), "DEV window": fr["dev_window"][0]})
         parts.append(_table(pd.DataFrame(rows)))
+        P("Return columns: <i>as run</i> = net return on capital under the applied leverage policy (10% vol target on the targeted book, gross ≤ 3×, drawdown brake); <i>unlevered</i> = as-run return divided by the window-average realized gross exposure (return per 1× gross book); <i>at 10% vol</i> = as-run return scaled linearly to the volatility target (an upper bound: impact grows superlinearly and the implied gross may exceed the 3× cap, see the 'gross needed' column).")
         for key, fr in fm["families"].items():
             fam, tag = key.split("@")
             H(3, f"{fam} (selected on {fr['dev_window'][0]} → {fr['dev_window'][1]}): <code>{fr['selected_id'].replace('C-moc-', '')}</code> — DSR {fr['multiple_testing'].get('dsr', float('nan')):.2f}, PBO {fr['multiple_testing'].get('pbo_cscv') if fr['multiple_testing'].get('pbo_cscv') is not None else 'n/a'}")

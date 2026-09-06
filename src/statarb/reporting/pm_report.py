@@ -26,6 +26,22 @@ def _pct(v, d=1):
     return "" if v is None or (isinstance(v, float) and np.isnan(v)) else f"{v*100:+.{d}f}%"
 
 
+def _unlev(d):
+    g = d.get("avg_gross_exposure") or 0.0
+    return d["net"]["ann_return"] / g if g > 1e-6 else None
+
+
+def _lev10(d):
+    v = d["net"].get("ann_vol") or 0.0
+    return d["net"]["ann_return"] * (0.10 / v) if v > 1e-9 else None
+
+
+def _gross_for_10(d):
+    v = d["net"].get("ann_vol") or 0.0
+    g = d.get("avg_gross_exposure") or 0.0
+    return g * (0.10 / v) if v > 1e-9 else None
+
+
 def _f(v, d=2):
     return "" if v is None or (isinstance(v, float) and np.isnan(v)) else f"{v:.{d}f}"
 
@@ -58,13 +74,15 @@ def build_pm_report():
                 for w in ("dev", "val", "diag_2023_2026"):
                     d = pr[w]
                     r[f"{w}: net SR"] = d["net"]["sharpe_ann"]
-                    r[f"{w}: net ret/yr"] = d["net"]["ann_return"]
+                    r[f"{w}: net ret/yr (as run)"] = d["net"]["ann_return"]
+                    r[f"{w}: unlevered ret/yr"] = _unlev(d)
+                    r[f"{w}: ret/yr at 10% vol"] = _lev10(d)
                     r[f"{w}: max DD"] = d["max_drawdown"]
                 rows.append(r)
-        df = pd.DataFrame(rows).rename(columns={"dev: net SR": "DEV net SR", "dev: net ret/yr": "DEV net ret/yr", "dev: max DD": "DEV max DD",
-                                                "val: net SR": "VAL net SR", "val: net ret/yr": "VAL net ret/yr", "val: max DD": "VAL max DD",
-                                                "diag_2023_2026: net SR": "2023–26 net SR", "diag_2023_2026: net ret/yr": "2023–26 net ret/yr", "diag_2023_2026: max DD": "2023–26 max DD"})
+        df = pd.DataFrame(rows)
+        df.columns = [c.replace("dev: ", "DEV ").replace("val: ", "VAL ").replace("diag_2023_2026: ", "2023–26 ") for c in df.columns]
         T(df)
+        P("<b>Three return figures are shown for every window.</b> <i>As run</i> = the backtest's own net return on capital under the leverage policy actually applied (10% volatility target on the targeted book, gross ≤ 3×, drawdown brake); because only 19% of limit-on-close entries fill, the realized gross exposure is far below target (0.1–0.5× of capital) and so is realized volatility. <i>Unlevered</i> = net return per 1× gross book (as-run return divided by the average realized gross exposure), i.e. what the strategy earns on the capital it actually deploys. <i>At 10% vol</i> = as-run return scaled linearly to the 10% volatility target (net Sharpe × 10%); the gross exposure that would require is given in section 4, and where it exceeds the 3× cap the figure is not attainable under the stated policy. Linear scaling ignores the superlinear growth of impact with size, so the levered figure is an upper bound.", "muted")
         P(f"Windows: DEV = development window on which the configuration was selected (pre-registered 2013-10-23 → 2018-12-14, and for comparison the 2005-01-03 → 2018-12-14 window that the pre-audit study used; both are shown because the selections differ and the difference is itself a finding); VAL = one-shot validation 2019-01-02 → 2022-12-15; 2023–26 = post-audit diagnostic run of the repaired pipeline on 2023-01-03 → 2026-08-31 (the frozen holdout on the same dates is in section 7). Capital ${cap/1e6:.0f}M, 10% volatility target, gross ≤ 3×, drawdown brake (halve at −10%, restore at −5%). Returns are fractions of capital per year, net of all modelled costs, uncompounded.", "muted")
     else:
         P("<i>Complete data set not yet generated (results/post_audit/full_metrics.json missing).</i>")
@@ -105,21 +123,26 @@ def build_pm_report():
                     d = pr[w]
                     n, g = d["net"], d["gross"]
                     rows.append({"profile": PROF_LABEL[prof], "window": w.replace("diag_2023_2026", "2023–26").upper(),
-                                 "net ret/yr": _pct(n["ann_return"]), "net vol": _pct(n["ann_vol"]), "net SR": _f(n["sharpe_ann"]), "SR 95% CI": f"{d['sharpe_ci95_ann'][0]:.2f} .. {d['sharpe_ci95_ann'][1]:.2f}",
+                                 "net ret/yr (as run)": _pct(n["ann_return"]), "avg gross (leverage used)": _f(d["avg_gross_exposure"]) + "×", "unlevered ret/yr (per 1× gross)": _pct(_unlev(d)),
+                                 "ret/yr at 10% vol": _pct(_lev10(d)), "gross needed for 10% vol": (_f(_gross_for_10(d), 1) + "×" + (" (> 3× cap)" if (_gross_for_10(d) or 0) > 3 else "")),
+                                 "net vol (as run)": _pct(n["ann_vol"]), "net SR": _f(n["sharpe_ann"]), "SR 95% CI": f"{d['sharpe_ci95_ann'][0]:.2f} .. {d['sharpe_ci95_ann'][1]:.2f}",
                                  "gross SR": _f(g["sharpe_ann"]), "Sortino": _f(n.get("sortino_ann")), "Calmar": _f(n.get("calmar")), "max DD": _pct(d["max_drawdown"]),
                                  "longest DD": f"{d['longest_drawdown_days']} d", "hit rate": _pct(n.get("hit_rate"), 1), "+months": _pct(d["pct_positive_months"], 0),
                                  "profit factor": _f(n.get("profit_factor")), "skew": _f(n.get("skew")), "kurtosis": _f(n.get("kurtosis"), 1), "PSR>0": _f(n.get("psr_vs_zero")),
-                                 "gross exp": _f(d["avg_gross_exposure"]), "net-exp std": _f(d["net_exposure_std"], 3), "β SPY": _f(d["beta_to_spy"], 3),
+                                 "net-exp std": _f(d["net_exposure_std"], 3), "β SPY": _f(d["beta_to_spy"], 3),
                                  "turnover/day": _f(d["turnover_per_day"]), "cost bp/day": _f(d["cost_bp_total"]), "worst day": f"{d['worst_day'][0]} {d['worst_day'][1]*100:+.2f}%"})
             T(pd.DataFrame(rows), "{}")
             # yearly
             yrows = []
             for prof, pr in fr["profiles"].items():
-                yr = {}
+                yr, yu = {}, {}
                 for w in ("dev", "val", "diag_2023_2026"):
+                    g = pr[w].get("avg_gross_exposure") or None
                     yr.update(pr[w]["yearly_net"])
-                yrows.append({"profile": PROF_LABEL[prof], **{k: _pct(v) for k, v in sorted(yr.items())}})
-            P("Net return by calendar year:")
+                    yu.update({k: (v / g if g else None) for k, v in pr[w]["yearly_net"].items()})
+                yrows.append({"profile": PROF_LABEL[prof], "basis": "as run (policy leverage)", **{k: _pct(v) for k, v in sorted(yr.items())}})
+                yrows.append({"profile": PROF_LABEL[prof], "basis": "unlevered (per 1× gross, window-average gross)", **{k: _pct(v) for k, v in sorted(yu.items())}})
+            P("Net return by calendar year, as run and unlevered:")
             T(pd.DataFrame(yrows), "{}")
             mm = fr["profiles"]["market_maker"]
             ys = {}
@@ -214,6 +237,7 @@ def build_pm_report():
     P("<b>Mechanism.</b> The no-news residual reversal is a day-one effect (6.8 bp per day on day one, 1.7 bp per day afterwards, on the decile spread), it is absent for earnings-8-K movers (which continue at about −15 bp per day), and it scales with lagged VIX (net Sharpe by VIX tercile 0.52 / 0.97 / 1.11 on the pre-audit 2005–2022 sample). This is consistent with compensation for supplying liquidity in stressed markets, not with a steady-state anomaly.")
     P("<b>Regime concentration.</b> Nearly all of the historical profit sits in 2008 and 2020–2021. Excluding 2020–2021 the validation Sharpe is negative; the 2023–2026 window contained no sustained stress and produced nothing. An allocator would be buying a short-vol-like exposure with a long-vol-like payoff profile, but one whose payoff has been shrinking each cycle.")
     P("<b>Execution dependence.</b> The edge is a few basis points per day against turnover of roughly half the book per day. Five basis points of slippage per side turns every window negative; only auction fills that pay no spread keep it near zero. Capacity under closing-auction participation is on the order of $5–20M before impact removes what is left.")
+    P("<b>Leverage.</b> The policy is a 10% volatility target with gross ≤ 3× and a drawdown brake. Because the limit-on-close filter fills only about a fifth of entries, the realized books run at 0.1–0.5× gross and 1–3% volatility; the unlevered return per 1× gross is therefore several times the as-run return, and reaching 10% volatility would require gross exposures that are near or beyond the 3× cap for most cells (section 4). Any allocator sizing this to a 10% target should read the 'at 10% vol' column as an upper bound that assumes linear cost scaling and no capacity constraint.")
     P("<b>Tail behaviour.</b> Daily net returns have excess kurtosis above 20 in the 2023–2026 window and single days account for most of the cumulative return (Sharpe ex-best-day ≈ 0). Drawdowns are shallow at the 10% vol target because realized volatility runs well below target: the limit-on-close filter leaves the book under-invested.")
 
     # ------------------------------------------------------------------ 9. recommendation
