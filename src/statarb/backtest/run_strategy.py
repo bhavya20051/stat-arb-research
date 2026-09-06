@@ -44,6 +44,7 @@ class StrategySpec:
     end: str | None = None
     label: str = "base"
     signal_lag_days: int = 0          # 1 = conservative daily-only proxy for MOC (signal from t-1 data, fill close t)
+    cost_profile: str = "institutional"
     construction: str = "quantile"    # quantile | hysteresis
     limit_delta: float = 0.5
     limit_through: float = 0.0005
@@ -51,16 +52,17 @@ class StrategySpec:
     exit_pct: float = 0.4
 
 
-def cost_params_from_config(execution: str, multiplier: float = 1.0, extra_bp: float = 0.0) -> CostParams:
+def cost_params_from_config(execution: str, multiplier: float = 1.0, extra_bp: float = 0.0, profile: str = "institutional") -> CostParams:
     c = load_config("costs")
+    prof = c.get("profiles", {}).get(profile) or c["commissions"]
     return CostParams(
-        commission_per_share=c["commissions"]["per_share_usd"],
-        min_commission_per_order=c["commissions"]["min_per_order_usd"],
-        max_commission_pct=c["commissions"]["max_pct_of_trade_value"],
+        commission_per_share=prof["per_share_usd"],
+        min_commission_per_order=prof["min_per_order_usd"],
+        max_commission_pct=prof["max_pct_of_trade_value"],
         sec_fee_rate=c["regulatory_fees_on_sells"].get("sec_fee_rate_default", 27.8e-6),
         finra_taf_per_share=c["regulatory_fees_on_sells"].get("finra_taf_per_share") or 0.000166,
         finra_taf_max=c["regulatory_fees_on_sells"].get("finra_taf_max_per_trade") or 8.30,
-        borrow_annual=c["short_borrow"]["general_collateral_annual"],
+        borrow_annual=prof.get("borrow_annual", c["short_borrow"]["general_collateral_annual"]),
         impact_k=c["impact"]["k"],
         impact_exponent=c["impact"].get("exponent", 0.5),
         spread_multiplier=multiplier,
@@ -151,7 +153,7 @@ def run(spec: StrategySpec, feats: dict | None = None, cost_multiplier: float = 
                        sigma_daily=feats["ret"].rolling(60, min_periods=20).std().shift(1).reindex_like(w) if "ret" in feats else None,
                        adv_shares=vol.rolling(60, min_periods=20).mean().shift(1).reindex(w.index),
                        delist=feats.get("delist"))
-    costs = cost_params_from_config(spec.execution, cost_multiplier, extra_bp)
+    costs = cost_params_from_config(spec.execution, cost_multiplier, extra_bp, spec.cost_profile)
     out = run_backtest(inp, spec.capital, costs)
     summ = {"label": spec.label, "spec": spec.__dict__, "cost_multiplier": cost_multiplier,
             "gross": summary_table(out["gross_ret"]), "net": summary_table(out["net_ret"]),
