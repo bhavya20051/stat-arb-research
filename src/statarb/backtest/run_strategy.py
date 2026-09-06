@@ -70,8 +70,9 @@ def cost_params_from_config(execution: str, multiplier: float = 1.0, extra_bp: f
 
 
 def build_weights(spec: StrategySpec, feats: dict) -> pd.DataFrame:
-    key = f"score_moc_k{spec.lookback}" if spec.execution == "moc" and f"score_moc_k{spec.lookback}" in feats else f"score_k{spec.lookback}"
-    elig_key = "eligible_moc" if spec.execution == "moc" and "eligible_moc" in feats else "eligible"
+    intraday_exec = spec.execution in ("moc", "limit", "loc")
+    key = f"score_moc_k{spec.lookback}" if intraday_exec and f"score_moc_k{spec.lookback}" in feats else f"score_k{spec.lookback}"
+    elig_key = "eligible_moc" if intraday_exec and "eligible_moc" in feats else "eligible"
     score = feats[key].where(feats[elig_key])
     if spec.turnover_bucket:
         tq = feats["abn_turnover"].rank(axis=1, pct=True)
