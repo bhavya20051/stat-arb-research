@@ -18,6 +18,7 @@ class CostParams:
     sec_fee_rate: float = 0.0  # fraction of sell notional; set per year at M3
     finra_taf_per_share: float = 0.0
     finra_taf_max: float = 0.0
+    clearing_pct_notional: float = 0.0  # e.g. NSCC ~$2.60 per $1M traded = 2.6e-6
     borrow_annual: float = 0.005
     impact_k: float = 0.142  # Almgren, Thum, Hauptmann & Li (2005) temporary-impact coefficient (verify at M3)
     impact_exponent: float = 0.6
@@ -42,7 +43,8 @@ def regulatory_fees(shares: np.ndarray, notional: np.ndarray, p: CostParams) -> 
     sells = shares < 0
     sec = np.where(sells, p.sec_fee_rate * np.abs(notional), 0.0)
     taf = np.where(sells, np.minimum(np.abs(shares) * p.finra_taf_per_share, p.finra_taf_max), 0.0)
-    return sec + taf
+    clearing = p.clearing_pct_notional * np.abs(notional)
+    return sec + taf + clearing
 
 
 def spread_cost(notional: np.ndarray, half_spread: np.ndarray, p: CostParams) -> np.ndarray:

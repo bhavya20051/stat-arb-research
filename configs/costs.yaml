@@ -12,6 +12,17 @@ profiles:
     min_per_order_usd: 0.0
     max_pct_of_trade_value: 1.0
     borrow_annual: 0.003
+  market_maker:                # exchange member / market maker; sources: reports/market_maker_cost_research.md (2026-09-05)
+    per_share_usd: 0.0008      # NYSE/Nasdaq closing-auction fee for MOC/LOC orders (range 0.0007-0.0011)
+    add_liquidity_rebate_usd: 0.0025   # credit for resting displayed orders (only the rejected resting-limit variant would earn it)
+    take_liquidity_fee_usd: 0.0029     # not used: no continuous-session market orders in the primary models
+    min_per_order_usd: 0.0
+    max_pct_of_trade_value: 1.0
+    clearing_pct_notional: 0.0000026   # NSCC ~$2.60 per $1M notional
+    sec_fee_rate: 0.0000206            # SEC Section 31, $20.60 per $1M of sales (effective 2026-04-04); DEV years used higher rates (UNVERIFIED history)
+    finra_taf_per_share: 0.000195
+    finra_taf_max_per_trade: 9.79
+    borrow_annual: 0.003               # GC stock-borrow FEE; the 3.64% BGCR is the cash-collateral financing rate, not the borrow fee
   retail:
     per_share_usd: 0.0035
     min_per_order_usd: 0.35
