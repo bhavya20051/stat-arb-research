@@ -71,7 +71,7 @@ def load_feats() -> dict:
     return feats
 
 
-def run_grid(dev_end: str = "2018-12-14", write_rows: bool = True) -> pd.DataFrame:
+def run_grid(dev_end: str = "2018-12-14", write_rows: bool = True, cost_profile: str = "market_maker") -> pd.DataFrame:
     OUT.mkdir(parents=True, exist_ok=True)
     feats = load_feats()
     existing = {r["experiment_id"] for r in _read()}
@@ -93,18 +93,19 @@ def run_grid(dev_end: str = "2018-12-14", write_rows: bool = True) -> pd.DataFra
         ex = d["exec"]
         kw = {k: v for k, v in d.items() if k != "exec"}
         spec = StrategySpec(execution="loc" if ex.startswith("loc") else "moc", limit_delta=float(ex[3:]) if ex.startswith("loc") else 0.5,
-                            band=0.0, end=dev_end, label=cid, **kw)  # kw may include construction="event", entry_z
+                            band=0.0, end=dev_end, label=cid, cost_profile=cost_profile, **kw)  # kw may include construction="event", entry_z
         out, s = run(spec, feats, write=False)
         series[cid] = out["net_ret"]
         r = {"id": cid, **d, "gross_sr": s["gross"]["sharpe_ann"], "net_sr": s["net"]["sharpe_ann"],
              "net_ann": s["net"]["ann_return"], "max_dd": s["net"]["max_drawdown"], "turnover": s["avg_turnover"],
              "gross_exp": s["avg_gross_exposure"], "cost_bp": s["cost_bp_per_day"], "n_days": s["net"]["n_days"]}
         rows.append(r)
-        if write_rows:
+        if write_rows and cost_profile == "market_maker":
             record(cid, f"DEV net SR {r['net_sr']:.2f}, gross SR {r['gross_sr']:.2f}, net ann {r['net_ann']:.3f}, maxDD {r['max_dd']:.2f}, turnover {r['turnover']:.2f}, cost {r['cost_bp']:.1f} bp/day",
                    "PASS" if r["net_sr"] > 0 else "FAIL (net <= 0)")
         print(f"{cid}: gross {r['gross_sr']:.2f} net {r['net_sr']:.2f} turn {r['turnover']:.2f} cost {r['cost_bp']:.1f}")
     df = pd.DataFrame(rows).sort_values("net_sr", ascending=False)
-    df.to_csv(OUT / "grid_results.csv", index=False)
-    pd.DataFrame(series).to_parquet(OUT / "grid_net_returns.parquet")
+    suffix = "" if cost_profile == "market_maker" else f"_{cost_profile}"
+    df.to_csv(OUT / f"grid_results{suffix}.csv", index=False)
+    pd.DataFrame(series).to_parquet(OUT / f"grid_net_returns{suffix}.parquet")
     return df

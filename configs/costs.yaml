@@ -1,14 +1,18 @@
 # Cost model (pre-registered 2026-09-05). Net results use this; gross results also reported.
 # Deployment context (user directive 2026-09-05): strategy is built for a large quantitative trading firm that
 # executes as an exchange member / market maker. Primary cost profile = institutional; retail is a sensitivity.
-cost_profile_primary: institutional
+cost_profile_primary: market_maker    # secondary: prime_brokered_fund (reported on all strategies); retail dropped
 capital_scales_usd:
   primary: null                  # chosen from the DEV net-Sharpe-vs-size curve (pre-specified rule, registry CAP-1)
   curve: [1000000, 5000000, 20000000, 50000000, 100000000, 200000000]
 
 profiles:
-  institutional:                 # exchange member, auction fills; values to verify at M3 against NYSE/Nasdaq fee schedules
-    per_share_usd: 0.0012        # closing-auction fee (~0.0010) + clearing (~0.0002)
+  prime_brokered_fund:           # hedge fund executing through a prime broker / broker algo desk (e.g. D. E. Shaw-type); exchange auction fee passed through + broker/clearing; no rebates
+    per_share_usd: 0.0012        # closing-auction fee (~0.0010) + clearing/broker (~0.0002)
+    sec_fee_rate: 0.0000206
+    finra_taf_per_share: 0.000195
+    finra_taf_max_per_trade: 9.79
+    clearing_pct_notional: 0.0000026
     min_per_order_usd: 0.0
     max_pct_of_trade_value: 1.0
     borrow_annual: 0.003
