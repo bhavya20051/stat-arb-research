@@ -152,15 +152,20 @@ def build_report() -> Path:
     H(1, "Residual short-term reversal in U.S. large caps: a cost-realistic, locked-holdout study")
     P(f"<span class='muted'>Generated {date.today()} from the repository's result files; every figure is reproducible from code. Status of stages: grid {'done' if grid is not None else 'pending'}, validation {'done' if val else 'pending'}, holdout {'done' if hold else 'pending'}.</span>")
     H(2, "Executive summary")
+    val_fund = _load_json(RES / "validation" / "validation_results_fund.json") or {}
+    cap_used = cap.get("primary_capital", 1e6) if cap else 1e6
+    P(f"<b>Cost profile of every headline number: market maker (exchange member: closing-auction fee, clearing, SEC 31 and FINRA TAF on sales, 0.3% borrow, Almgren impact on closing-auction volume; no spread on auction fills).</b> Capital ${cap_used/1e6:.0f}M (pre-specified capacity rule), 10% volatility target, gross ≤ 3×, drawdown brake. The prime-brokered-fund profile (auction fee passed through a broker, no rebates) is shown in the last two columns; retail costs were dropped as not applicable to the target firms. Sharpe ratios are annualised from daily net returns.")
     summ_rows = []
     for fam, s in val.items():
-        summ_rows.append({"strategy": fam, "DEV net Sharpe": sel.get(fam, {}).get("dev", {}).get("net_sr"), "VAL net Sharpe": s["net"]["sharpe_ann"],
-                          "VAL 95% CI": f"{s['net']['sharpe_ci95_ann'][0]:.2f} .. {s['net']['sharpe_ci95_ann'][1]:.2f}", "VAL net return/yr": s["net"]["ann_return"],
-                          "VAL max DD": s["net"]["max_drawdown"], "turnover/day": s["avg_turnover"], "PSR": s["net"].get("psr_vs_zero"), "DSR (DEV)": sel.get(fam, {}).get("multiple_testing", {}).get("dsr")})
-    if hold:
-        for fam, s in hold.get("families", {}).items():
-            summ_rows.append({"strategy": f"{fam} — LOCKED HOLDOUT 2023-01-03..2026-08-31", "VAL net Sharpe": None, "DEV net Sharpe": None, "VAL 95% CI": "", "VAL net return/yr": None, "VAL max DD": None, "turnover/day": None, "PSR": None, "DSR (DEV)": None, **{k: v for k, v in s.items() if k.startswith("holdout")}})
+        hf = hold.get("families", {}).get(fam, {}) if hold else {}
+        hv = hf.get("variants", {}) if hf else {}
+        summ_rows.append({"strategy": fam, "DEV net SR": sel.get(fam, {}).get("dev", {}).get("net_sr"), "VAL net SR": s["net"]["sharpe_ann"],
+                          "VAL 95% CI": f"{s['net']['sharpe_ci95_ann'][0]:.2f} .. {s['net']['sharpe_ci95_ann'][1]:.2f}", "VAL net ret/yr": s["net"]["ann_return"],
+                          "VAL max DD": s["net"]["max_drawdown"], "turnover/day": s["avg_turnover"], "DSR (DEV)": sel.get(fam, {}).get("multiple_testing", {}).get("dsr"),
+                          "HOLDOUT net SR": hf.get("holdout_net_sharpe"), "HOLDOUT gross SR": hv.get("base", {}).get("gross_sharpe"), "HOLDOUT net ret/yr": hf.get("holdout_net_ann"), "HOLDOUT max DD": hf.get("holdout_max_dd"),
+                          "VAL net SR (fund profile)": val_fund.get(fam, {}).get("net", {}).get("sharpe_ann"), "HOLDOUT net SR (fund profile)": hv.get("profile_prime_brokered_fund", {}).get("net_sharpe")})
     parts.append(_table(pd.DataFrame(summ_rows)))
+    P("<b>Locked holdout = 2023-01-03 → 2026-08-31, single run of the frozen configuration; validation = 2019-01-02 → 2022-12-15, one shot; development = 2005–2018.</b>")
     P("Interpretation and the A–D classification are in the Conclusion section; the headline figure is always the net-of-cost result on data not used for design.")
 
     # ---------------- research question, hypothesis, literature

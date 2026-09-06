@@ -20,21 +20,23 @@ code{background:var(--code);padding:1px 5px;border-radius:3px;font-family:"IBM P
 img{margin:8px 0;background:#fff;border:1px solid var(--rule);border-radius:4px}
 hr{border:0;border-top:1px solid var(--rule);margin:36px 0}
 </style>
-<div class="wrap"><h1>Residual short-term reversal in U.S. large caps: a cost-realistic, locked-holdout study</h1><p><span class='muted'>Generated 2026-09-06 from the repository's result files; every figure is reproducible from code. Status of stages: grid done, validation done, holdout done.</span></p><h2>Executive summary</h2><table class="dataframe tbl">
+<div class="wrap"><h1>Residual short-term reversal in U.S. large caps: a cost-realistic, locked-holdout study</h1><p><span class='muted'>Generated 2026-09-06 from the repository's result files; every figure is reproducible from code. Status of stages: grid done, validation done, holdout done.</span></p><h2>Executive summary</h2><p><b>Cost profile of every headline number: market maker (exchange member: closing-auction fee, clearing, SEC 31 and FINRA TAF on sales, 0.3% borrow, Almgren impact on closing-auction volume; no spread on auction fills).</b> Capital $1M (pre-specified capacity rule), 10% volatility target, gross ≤ 3×, drawdown brake. The prime-brokered-fund profile (auction fee passed through a broker, no rebates) is shown in the last two columns; retail costs were dropped as not applicable to the target firms. Sharpe ratios are annualised from daily net returns.</p><table class="dataframe tbl">
   <thead>
     <tr style="text-align: right;">
       <th>strategy</th>
-      <th>DEV net Sharpe</th>
-      <th>VAL net Sharpe</th>
+      <th>DEV net SR</th>
+      <th>VAL net SR</th>
       <th>VAL 95% CI</th>
-      <th>VAL net return/yr</th>
+      <th>VAL net ret/yr</th>
       <th>VAL max DD</th>
       <th>turnover/day</th>
-      <th>PSR</th>
       <th>DSR (DEV)</th>
-      <th>holdout_net_sharpe</th>
-      <th>holdout_net_ann</th>
-      <th>holdout_max_dd</th>
+      <th>HOLDOUT net SR</th>
+      <th>HOLDOUT gross SR</th>
+      <th>HOLDOUT net ret/yr</th>
+      <th>HOLDOUT max DD</th>
+      <th>VAL net SR (fund profile)</th>
+      <th>HOLDOUT net SR (fund profile)</th>
     </tr>
   </thead>
   <tbody>
@@ -46,11 +48,13 @@ hr{border:0;border-top:1px solid var(--rule);margin:36px 0}
       <td>0.000</td>
       <td>-0.060</td>
       <td>0.288</td>
-      <td>0.523</td>
       <td>0.150</td>
-      <td></td>
-      <td></td>
-      <td></td>
+      <td>-0.066</td>
+      <td>0.094</td>
+      <td>-0.002</td>
+      <td>-0.053</td>
+      <td>0.014</td>
+      <td>-0.076</td>
     </tr>
     <tr>
       <td>event_reversal</td>
@@ -60,11 +64,13 @@ hr{border:0;border-top:1px solid var(--rule);margin:36px 0}
       <td>0.012</td>
       <td>-0.041</td>
       <td>0.157</td>
-      <td>0.839</td>
       <td>0.631</td>
-      <td></td>
-      <td></td>
-      <td></td>
+      <td>-0.016</td>
+      <td>0.062</td>
+      <td>-0.001</td>
+      <td>-0.083</td>
+      <td>0.489</td>
+      <td>-0.023</td>
     </tr>
     <tr>
       <td>rank_reversal</td>
@@ -74,56 +80,16 @@ hr{border:0;border-top:1px solid var(--rule);margin:36px 0}
       <td>0.026</td>
       <td>-0.039</td>
       <td>0.207</td>
-      <td>0.970</td>
       <td>0.624</td>
-      <td></td>
-      <td></td>
-      <td></td>
-    </tr>
-    <tr>
-      <td>earnings_drift — LOCKED HOLDOUT 2023-01-03..2026-08-31</td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td>-0.066</td>
-      <td>-0.002</td>
-      <td>-0.053</td>
-    </tr>
-    <tr>
-      <td>event_reversal — LOCKED HOLDOUT 2023-01-03..2026-08-31</td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td>-0.016</td>
-      <td>-0.001</td>
-      <td>-0.083</td>
-    </tr>
-    <tr>
-      <td>rank_reversal — LOCKED HOLDOUT 2023-01-03..2026-08-31</td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td></td>
-      <td></td>
       <td>0.165</td>
+      <td>0.262</td>
       <td>0.006</td>
       <td>-0.084</td>
+      <td>0.916</td>
+      <td>0.155</td>
     </tr>
   </tbody>
-</table></div><p>Interpretation and the A–D classification are in the Conclusion section; the headline figure is always the net-of-cost result on data not used for design.</p><h2>Research question and economic hypothesis</h2><p>Does company-specific (residual) short-term price pressure in liquid U.S. stocks still reverse enough, after realistic exchange-member costs and with orders a firm can actually place (market-on-close and limit-on-close), to be traded profitably when news-driven moves are filtered out ex ante? Mechanism: temporary liquidity demand pushes a stock away from its factor-implied value; once the urgent trader is done the price drifts back (Nagel 2012; Blitz, Huij, Lansdorp & Verbeek 2013). News-driven moves should continue rather than reverse (Chan 2003; Tetlock 2011); the premium should rise with market stress (Nagel 2012).</p><h2>Hypothesis registry (pre-registered, never edited except to fill results)</h2><table class="dataframe tbl">
+</table></div><p><b>Locked holdout = 2023-01-03 → 2026-08-31, single run of the frozen configuration; validation = 2019-01-02 → 2022-12-15, one shot; development = 2005–2018.</b></p><p>Interpretation and the A–D classification are in the Conclusion section; the headline figure is always the net-of-cost result on data not used for design.</p><h2>Research question and economic hypothesis</h2><p>Does company-specific (residual) short-term price pressure in liquid U.S. stocks still reverse enough, after realistic exchange-member costs and with orders a firm can actually place (market-on-close and limit-on-close), to be traded profitably when news-driven moves are filtered out ex ante? Mechanism: temporary liquidity demand pushes a stock away from its factor-implied value; once the urgent trader is done the price drifts back (Nagel 2012; Blitz, Huij, Lansdorp & Verbeek 2013). News-driven moves should continue rather than reverse (Chan 2003; Tetlock 2011); the premium should rise with market stress (Nagel 2012).</p><h2>Hypothesis registry (pre-registered, never edited except to fill results)</h2><table class="dataframe tbl">
   <thead>
     <tr style="text-align: right;">
       <th>experiment_id</th>
