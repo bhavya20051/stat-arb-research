@@ -65,7 +65,7 @@ def cost_params_from_config(execution: str, multiplier: float = 1.0, extra_bp: f
         impact_exponent=c["impact"].get("exponent", 0.5),
         spread_multiplier=multiplier,
         extra_slippage_bp=extra_bp,
-        pay_spread=(execution not in ("moc", "moo")),
+        pay_spread=(execution not in ("moc", "moo", "loc", "limit")),  # auction fills and resting limit orders pay no spread
     )
 
 

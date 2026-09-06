@@ -75,3 +75,6 @@ Handling: the gap is reported alongside every DEV result; the 2005–2011 DEV ye
 - 28.8% of adjustment-ratio jumps do not coincide with a recorded split/dividend date (likely ex-date vs record-date conventions in FMP's dividends table); to be resolved before the report by matching within ±3 days.
 - FMP daily `open` provenance (auction print vs first trade) unverified; affects only the secondary next-open model.
 - 185 symbols lack a CIK in their FMP profile, so 8-K coverage is 763/948 symbols; the missing names are mostly delisted and will be mapped through EDGAR's company search.
+
+## Spread-estimator check (2026-09-05)
+Range-based spread estimates (Corwin–Schultz / Abdi–Ranaldo, 21-day) give a median full spread of 42–56 bp per year for eligible S&P 500 names (2018 p10/p50/p90 = 28/52/100 bp), about ten times the quoted spreads of these stocks. The estimators are therefore rejected as a cost basis for large caps (registry COST-2); the primary execution models use auction or resting-limit fills that pay no spread.
