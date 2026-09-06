@@ -54,8 +54,6 @@ def run_suite(spec: StrategySpec, family: str, start: str, end: str) -> pd.DataF
     for m in (1.5, 2.0):
         o, s = run(base, feats, cost_multiplier=m, write=False); rows.append(_summ(o, s, f"costs_x{m}"))
     o, s = run(base, feats, extra_bp=5.0, write=False); rows.append(_summ(o, s, "slippage_+5bp"))
-    for prof in ("institutional", "retail"):
-        o, s = run(replace(base, cost_profile=prof), feats, write=False); rows.append(_summ(o, s, f"profile_{prof}"))
     # execution
     o, s = run(replace(base, signal_lag_days=1), feats, write=False); rows.append(_summ(o, s, "signal_lag_+1day"))
     o, s = run(replace(base, execution="moc" if base.execution == "loc" else "loc"), feats, write=False); rows.append(_summ(o, s, "other_execution"))

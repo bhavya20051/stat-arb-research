@@ -29,10 +29,14 @@ def main():
         LOG("waiting for ingest to finish ...")
         time.sleep(120)
     LOG("ingest finished")
-    from statarb.features.build_moc import build
+    from statarb.features.build_moc import build, load_moc
     t = time.time()
-    f = build()
-    LOG(f"MOC features rebuilt on full panel in {time.time()-t:.0f}s; symbols {f['score_moc_k1'].shape[1]}; eligible/day (DEV) {f['eligible_moc'].loc[:'2018-12-14'].sum(axis=1).mean():.0f}")
+    if os.environ.get("STATARB_SKIP_BUILD") == "1":
+        f = {"score_moc_k1": load_moc("score_moc_k1"), "eligible_moc": load_moc("eligible_moc")}
+        LOG("using existing MOC features")
+    else:
+        f = build()
+    LOG(f"MOC features ready in {time.time()-t:.0f}s; symbols {f['score_moc_k1'].shape[1]}; eligible/day (DEV) {f['eligible_moc'].loc[:'2018-12-14'].sum(axis=1).mean():.0f}")
     from statarb.research.dev_grid import run_grid
     t = time.time()
     df = run_grid(write_rows=True)

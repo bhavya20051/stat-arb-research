@@ -10,18 +10,30 @@ import pandas as pd
 
 
 def neutralize_sector(w: pd.DataFrame, sector: pd.DataFrame) -> pd.DataFrame:
-    """Remove the mean weight within each sector on each date (sector: DataFrame of sector labels, same shape)."""
+    """Remove the mean weight within each sector on each date among active (non-zero) names.
+    Vectorised: if the sector panel is constant over time (the usual case) uses a column-group matrix."""
+    W = w.to_numpy(dtype=float)
+    active = W != 0
+    sec = sector.reindex(index=w.index, columns=w.columns)
+    first = sec.iloc[0]
+    if (sec.nunique(axis=0) <= 1).all():
+        labels = first.fillna("NA").astype(str).to_numpy()
+        out = W.copy()
+        for lab in np.unique(labels):
+            cols = labels == lab
+            a = active[:, cols]
+            n = a.sum(axis=1)
+            m = np.where(n > 0, (W[:, cols] * a).sum(axis=1) / np.maximum(n, 1), 0.0)
+            out[:, cols] = np.where(a, W[:, cols] - m[:, None], 0.0)
+        return pd.DataFrame(out, index=w.index, columns=w.columns)
     out = w.copy()
     for d in w.index:
         row = w.loc[d]
-        sec = sector.loc[d] if d in sector.index else None
-        if sec is None:
+        act = row != 0
+        if not act.any():
             continue
-        active = row != 0
-        if not active.any():
-            continue
-        means = row[active].groupby(sec[active]).transform("mean")
-        out.loc[d, active] = row[active] - means
+        means = row[act].groupby(sec.loc[d][act]).transform("mean")
+        out.loc[d, act] = row[act] - means
     return out
 
 
@@ -73,23 +85,21 @@ def apply_no_trade_band(target: pd.DataFrame, band: float) -> pd.DataFrame:
 
 
 def enforce_limits(w: pd.DataFrame, gross_max: float = 2.0, net_abs_max: float = 0.05) -> pd.DataFrame:
-    gross = w.abs().sum(axis=1)
-    scale = (gross_max / gross.replace(0, np.nan)).clip(upper=1.0).fillna(1.0)
-    w = w.mul(scale, axis=0)
-    net = w.sum(axis=1)
-    # push net back inside the band by shifting proportionally on the larger side
-    excess = net.clip(lower=-net_abs_max, upper=net_abs_max)
-    adj = net - excess
-    out = w.copy()
-    for d in w.index[adj.abs() > 1e-12]:
-        row = out.loc[d]
-        if adj[d] > 0:
-            pos = row.clip(lower=0)
-            out.loc[d] = row - pos / pos.sum() * adj[d]
-        else:
-            neg = row.clip(upper=0)
-            out.loc[d] = row - neg / neg.sum() * adj[d]
-    return out
+    """Scale gross exposure to <= gross_max, then push |net| inside the band by shifting the larger side (vectorised)."""
+    W = w.to_numpy(dtype=float)
+    gross = np.abs(W).sum(axis=1)
+    scale = np.where(gross > gross_max, gross_max / np.where(gross > 0, gross, 1.0), 1.0)
+    W = W * scale[:, None]
+    net = W.sum(axis=1)
+    adj = net - np.clip(net, -net_abs_max, net_abs_max)
+    pos = np.clip(W, 0, None)
+    neg = np.clip(W, None, 0)
+    ps = pos.sum(axis=1)
+    ns = neg.sum(axis=1)
+    shift_pos = np.where((adj > 0) & (ps > 0), adj / np.where(ps > 0, ps, 1.0), 0.0)
+    shift_neg = np.where((adj < 0) & (ns < 0), adj / np.where(ns < 0, ns, 1.0), 0.0)
+    W = W - pos * shift_pos[:, None] - neg * shift_neg[:, None]
+    return pd.DataFrame(W, index=w.index, columns=w.columns)
 
 
 def hysteresis_weights(score: pd.DataFrame, enter_pct: float = 0.2, exit_pct: float = 0.4, max_hold: int = 5) -> pd.DataFrame:

@@ -49,7 +49,7 @@ def build(lookbacks=(1, 2, 3), decision_time: str = "15:40") -> dict[str, pd.Dat
     fac_cols = [e for e in etfs if e in ret.columns]
     betas = rolling_betas(ret[have], ret[fac_cols], window=250)  # 250d: RES-1 showed 120d betas too noisy
     betas_lag = {k: v.shift(1) for k, v in betas.items()}
-    feats = {"p1545": p1545}
+    feats = {"p1545": p1545, "last_bar_close": last_bar}
     idx = p1545.index.intersection(ret.index)
     for k in lookbacks:
         sc = moc_score(p1545[have].reindex(idx), prev_close_basis[have].reindex(idx), p1545[fac_cols].reindex(idx),

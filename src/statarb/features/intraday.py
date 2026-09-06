@@ -28,7 +28,8 @@ def decision_price_panel(symbols: list[str], bar_start: str = "15:30", value: st
             continue
         df = pd.read_parquet(f, columns=["ts", value])
         ts = pd.to_datetime(df["ts"])
-        sel = df[ts.dt.strftime("%H:%M") == bar_start]
+        hh, mm = (int(x) for x in bar_start.split(":"))
+        sel = df[(ts.dt.hour == hh) & (ts.dt.minute == mm)]
         ser = pd.Series(sel[value].to_numpy(), index=pd.to_datetime(sel["ts"]).dt.normalize())
         cols[s] = ser[~ser.index.duplicated()]
     return pd.DataFrame(cols).sort_index()

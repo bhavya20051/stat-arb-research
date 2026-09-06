@@ -167,7 +167,10 @@ def run(spec: StrategySpec, feats: dict | None = None, cost_multiplier: float = 
         from statarb.features.build_moc import load_moc
         from statarb.features.intraday import decision_price_panel
         p1545 = load_moc("p1545").reindex(index=w.index, columns=syms)
-        last_bar = decision_price_panel(syms, "15:45", "close").reindex(index=w.index, columns=syms)
+        try:
+            last_bar = load_moc("last_bar_close").reindex(index=w.index, columns=syms)
+        except FileNotFoundError:
+            last_bar = decision_price_panel(syms, "15:45", "close").reindex(index=w.index, columns=syms)
         ac = adj_close.reindex(w.index)
         sigma = feats["ret"].reindex(columns=syms).rolling(60, min_periods=20).std().shift(1).reindex(w.index)
         if spec.execution == "limit":
