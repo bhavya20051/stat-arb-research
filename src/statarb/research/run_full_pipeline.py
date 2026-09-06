@@ -17,7 +17,7 @@ LOG = lambda *a: print(time.strftime("%H:%M:%S"), *a, flush=True)
 def ingest_running() -> bool:
     try:
         out = subprocess.check_output(["powershell", "-NoProfile", "-Command",
-                                       "(Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*statarb.cli ingest*' } | Measure-Object).Count"],
+                                       "(Get-CimInstance Win32_Process | Where-Object { $_.Name -like 'python*' -and $_.CommandLine -like '*statarb.cli*ingest*' -and $_.CommandLine -notlike '*Win32_Process*' } | Measure-Object).Count"],
                                       text=True, timeout=60)
         return int(out.strip() or "0") > 0
     except Exception:
