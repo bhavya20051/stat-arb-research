@@ -8,7 +8,8 @@
    "vix_gate": "none",
    "exec": "moc",
    "construction": "event",
-   "signal": "earnings_drift"
+   "signal": "earnings_drift",
+   "drift_timing": "after_hours"
   },
   "dev": {
    "id": "C-moc-constructionevent-signalearnings_drift-lookback1-holding1-entry_z1.0-vix_gatenone-execmoc-drift_timingafter_hours",

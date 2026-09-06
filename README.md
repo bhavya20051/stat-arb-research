@@ -34,7 +34,8 @@ Post-audit rerun (repaired pipeline, exchange-member profile; the prime-brokered
 | Rank reversal | 2005 → 2018 (frozen config) | 1.27 | 1.59 (0.68..2.42) | 0.20 (−0.92..1.37) | +0.5% / 2.7% / −6.4% |
 | Event reversal | 2013-10-23 → 2018 | 1.00 (2% gross book) | −0.42 (−1.18..0.72) | 0.45 (−0.69..1.39) | +0.5% / 1.0% / −1.5% |
 | Event reversal | 2005 → 2018 (frozen config) | 1.02 | 0.95 (0.09..1.66) | 1.13 (0.22..1.96) | +3.9% / 3.4% / −2.4% |
-| Earnings drift | either | 0.22–0.26 | −0.26 (−1.20..0.67) | 0.67 (−0.49..1.78) | +0.9% / 1.4% / −1.5% |
+| Earnings drift | 2013-10-23 → 2018 (pre-registered) | 0.22 (3–6% gross book) | −0.32 (−1.26..0.63) | 0.79 (−0.26..1.87) | +1.1% / 1.4% / −1.4% |
+| Earnings drift | 2005 → 2018 | 0.26 (1% gross book) | −1.08 (−1.98..−0.01) | 0.61 (−0.27..1.33) | +0.5% / 0.9% / −0.9% |
 
 The pre-audit in-sample Sharpes are withdrawn: about half of their gross P&L was unhedged market exposure created by the fill rule (realized net-exposure std 0.20 of capital, now 0.04). The event-reversal cell at 1.13 was selected outside the pre-registered window and examined once on a spent window; it is a forward-test candidate, not evidence. Costs: capital $1M by the pre-specified capacity rule; 10% vol target, gross ≤ 3×, drawdown brake; LOC fill rate 19%, so effective gross exposure is 0.1–0.5 of capital and realized volatility 1–3%.
 

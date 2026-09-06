@@ -26,7 +26,8 @@ Selection was rerun with the unchanged rule on two development windows. VAL is t
 | Rank reversal | 2005-01-03 → 2018 | k=1, hold 3, quintiles, LOC δ=1 (= frozen config) | 1.27 | 1.59 (0.68 .. 2.42) | +2.3% | 0.20 (−0.92 .. 1.37) | +0.5% / 2.7% / −6.4% |
 | Event reversal | 2013-10-23 → 2018 | \|z\| ≥ 3, hold 2, VIX-linear, MOC (gross exposure 2%) | 1.00 | −0.42 (−1.18 .. 0.72) | −1.0% | 0.45 (−0.69 .. 1.39) | +0.5% / 1.0% / −1.5% |
 | Event reversal | 2005-01-03 → 2018 | \|z\| ≥ 2, hold 3, LOC δ=1 (= frozen config) | 1.02 | 0.95 (0.09 .. 1.66) | +2.2% | 1.13 (0.22 .. 1.96) | +3.9% / 3.4% / −2.4% |
-| Earnings drift | either | after-hours / high-volume 2.02 filers, hold 1 | 0.22–0.26 | −0.26 (−1.20 .. 0.67) | −0.4% | 0.67 (−0.49 .. 1.78) | +0.9% / 1.4% / −1.5% |
+| Earnings drift | 2013-10-23 → 2018 (pre-registered) | after-hours 2.02 filers, hold 1 (gross exposure 3–6%) | 0.22 | −0.32 (−1.26 .. 0.63) | −0.5% | 0.79 (−0.26 .. 1.87) | +1.1% / 1.4% / −1.4% |
+| Earnings drift | 2005-01-03 → 2018 | high-volume 2.02 filers, hold 1 (gross exposure 1%) | 0.26 | −1.08 (−1.98 .. −0.01) | −0.8% | 0.61 (−0.27 .. 1.33) | +0.5% / 0.9% / −0.9% |
 
 Realized net-exposure standard deviation is now 0.04 of capital in every cell (0.20 before the repair); the market-timing component of gross P&L is ≤ 25% in every cell with a non-trivial gross return. LOC fill rate on the rank book is 19%; the effective gross exposure is 0.11–0.49 of capital against a targeted 0.41–0.94, which is why annual returns are one to four percent even at a 10% volatility target: the limit-on-close filter leaves the book under-invested and the vol target is computed on the targeted, not the filled, book.
 

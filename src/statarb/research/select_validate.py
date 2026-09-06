@@ -74,7 +74,7 @@ def select(grid_csv=None, gross_max: float = 3.0, max_turnover: float = 2.5) -> 
             "dsr": float(dsr(r_best, fam_sharpes)),
             "pbo_cscv": float(pbo_cscv(M.to_numpy(), n_blocks=16 if len(M) > 2000 else 8)["pbo"]) if len(ids) >= 3 else None,
         }
-        choices[fam] = {"id": chosen["id"], "params": {p: chosen[p] for p in ("lookback", "holding", "n_deciles", "entry_z", "vix_gate", "exec", "construction", "signal") if p in chosen and pd.notna(chosen[p])},
+        choices[fam] = {"id": chosen["id"], "params": {p: chosen[p] for p in ("lookback", "holding", "n_deciles", "entry_z", "vix_gate", "exec", "construction", "signal", "drift_volume_bucket", "drift_timing") if p in chosen and pd.notna(chosen[p])},
                         "dev": chosen.to_dict(), "multiple_testing": stats}
     VAL_OUT.mkdir(parents=True, exist_ok=True)
     with open(VAL_OUT / "selection.json", "w", encoding="utf-8") as f:
@@ -94,6 +94,10 @@ def spec_from_choice(ch: dict, start: str, end: str, capital: float, label: str)
         kw.update(n_deciles=int(p["n_deciles"]))
     if p.get("signal") == "earnings_drift":
         kw.update(signal="earnings_drift")
+        # post-review fix (REPORT_REVIEW finding 1): the volume/timing conditioning was silently dropped before 2026-09-06
+        for k in ("drift_volume_bucket", "drift_timing"):
+            if p.get(k) not in (None, "", "nan") and not (isinstance(p.get(k), float) and np.isnan(p.get(k))):
+                kw[k] = str(p[k])
     return StrategySpec(**kw)
 
 

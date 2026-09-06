@@ -1,22 +1,22 @@
 {
  "vix_regimes": {
   "low_vix": {
-   "net_sharpe": 0.004682057975238621,
+   "net_sharpe": 0.20152483607154217,
    "days": 780
   },
   "mid_vix": {
-   "net_sharpe": 0.8513398074478518,
+   "net_sharpe": 0.15950335475127495,
    "days": 629
   },
   "high_vix": {
-   "net_sharpe": -0.7285766137107926,
+   "net_sharpe": -0.7886505122328406,
    "days": 755
   }
  },
  "concentration": {
-  "base_sr": 0.06573506497274306,
-  "drop_best_day": -0.050889562034684296,
-  "drop_best_week": -0.028928981534142993,
-  "drop_best_month": -0.0881975515152189
+  "base_sr": -0.10515130301402144,
+  "drop_best_day": -0.1814766040652953,
+  "drop_best_week": -0.19068017657411762,
+  "drop_best_month": -0.2236104406953947
  }
 }

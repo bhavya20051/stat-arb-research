@@ -46,6 +46,13 @@ def _load_json(p: Path):
         return None
 
 
+def _fmt2(v) -> str:
+    try:
+        return "n/a" if v is None or (isinstance(v, float) and np.isnan(v)) else f"{float(v):.2f}"
+    except (TypeError, ValueError):
+        return str(v)
+
+
 def _table(df: pd.DataFrame, floatfmt: str = "{:.3f}") -> str:
     if df is None or len(df) == 0:
         return "<p class='muted'>not available</p>"
@@ -53,6 +60,8 @@ def _table(df: pd.DataFrame, floatfmt: str = "{:.3f}") -> str:
     for c in d.columns:
         if pd.api.types.is_float_dtype(d[c]):
             d[c] = d[c].map(lambda v: "" if pd.isna(v) else floatfmt.format(v))
+        else:
+            d[c] = d[c].map(lambda v: "" if (v is None or (isinstance(v, float) and np.isnan(v))) else v)
     return d.to_html(index=False, classes="tbl", border=0, escape=False)
 
 
@@ -152,8 +161,33 @@ def build_report() -> Path:
     H(1, "Residual short-term reversal in U.S. large caps: a cost-realistic, locked-holdout study")
     P(f"<span class='muted'>Generated {date.today()} from the repository's result files; every figure is reproducible from code. Status of stages: grid {'done' if grid is not None else 'pending'}, validation {'done' if val else 'pending'}, holdout {'done' if hold else 'pending'}.</span>")
     H(2, "Executive summary")
+    # ---- audit notice and post-audit table
+    pa = _load_json(RES / "post_audit" / "post_audit_results.json") or {}
+    H(3, "Red-team audit notice (2026-09-06) — read before using any pre-audit number below")
+    P("An independent, fresh-context red-team review (reports/RED_TEAM_AUDIT.md; 22 findings, 2 critical, 6 high) found that the pre-audit numbers in the two tables above were produced by code with four material defects: (F1) the SPY hedge and the net-exposure correction were themselves gated by the limit-on-close fill rule, so the realized book carried an unhedged market exposure with standard deviation 0.20 of capital (target 0.05) whose sign flipped with the closing tape — about half of the 2005–2022 gross P&L was the product of that exposure and the next day's market return; (F2) the development grid ran from 2005 although the pre-registered rule set the start at the first date with ≥80% intraday coverage (2013-10-23), and the selected configuration's net Sharpe is 1.55 on 2005–2011 versus −0.35 on 2012–2018; (F3) the 15:40 eligibility mask used the full-day residual of day t (an end-of-day quantity); (F4) 'limit-on-close' entries that were cancelled became unconditional market-on-close fills the next day, so only ~20% of entries were actually LOC fills. Further findings: delisting rules were implemented in the engine but never wired into the research runs (F15), pre-split dividends were mis-scaled on split-adjusted intraday series (F9), and several documents overclaimed ('beta-neutral', 'leakage-free', 'validation confirmed development almost exactly'). <b>The reviewer's classification: D for the positive DEV/VAL claims as originally stated; the negative holdout conclusion stands; after repairs the study is a research-quality C.</b> All four code defects plus F9 and F15 were repaired on 2026-09-06 (six new unit tests), the documents were corrected, and the whole pipeline was rerun; the results are below and in the audit section. <b>The locked holdout file was not touched and is not re-run</b>: the 2023–2026 numbers in the post-audit table are a labelled diagnostic of the repaired code, not a second holdout.")
+    if pa:
+        rows = []
+        for key, fr in pa.get("families", {}).items():
+            fam, tag = key.split("@")
+            vm, vf = fr.get("val_market_maker", {}), fr.get("val_prime_brokered_fund", {})
+            dm, dfu = fr.get("diag_2023_2026_market_maker", {}), fr.get("diag_2023_2026_prime_brokered_fund", {})
+            rows.append({"strategy": fam, "DEV window": pa["dev_windows"].get(tag), "selected id": fr["selected_id"].replace("C-moc-", ""),
+                         "DEV net SR": fr["dev"]["net_sr"], "DSR (DEV)": fr["multiple_testing"].get("dsr"), "DEV net SR 2012–18": fr["dev_era"].get("sr_2012_2018"),
+                         "VAL net SR (mm)": vm.get("net_sr"), "VAL net ret/yr (mm)": vm.get("net_ann"), "VAL SR ex-2020–21": vm.get("era", {}).get("sr_ex_2020_2021"),
+                         "VAL net SR (fund)": vf.get("net_sr"),
+                         "2023–26 net SR (mm, diagnostic)": dm.get("net_sr"), "2023–26 net ret/yr (mm)": dm.get("net_ann"), "2023–26 max DD": dm.get("max_dd"),
+                         "2023–26 net SR (fund)": dfu.get("net_sr"), "realized net-exposure std (VAL)": vm.get("exposures", {}).get("net_std"),
+                         "market-component share of gross (VAL)": vm.get("market_component", {}).get("share")})
+        H(3, "Post-audit results (repaired pipeline; mm = market-maker profile)")
+        parts.append(_table(pd.DataFrame(rows)))
+        P("Selection on each development window used the unchanged pre-specified rule (max DEV net Sharpe subject to gross ≤ 3, turnover ≤ 2.5, neighbour stability). The pre-registered window (2013-10-23 → 2018-12-14) is the primary; the 2005 window is shown because the pre-audit numbers were produced on it.")
+    else:
+        P("<i>Post-audit rerun pending (results/post_audit/post_audit_results.json not found).</i>")
+    P("Interpretation and the A–D classification are in the Conclusion section; the headline figure is always the net-of-cost result on data not used for design.")
+
     val_fund = _load_json(RES / "validation" / "validation_results_fund.json") or {}
     cap_used = cap.get("primary_capital", 1e6) if cap else 1e6
+    H(3, "Pre-audit results (withdrawn as evidence of an edge; kept for the record, and because the locked holdout was run from them)")
     P(f"<b>Cost profile of every headline number: market maker (exchange member: closing-auction fee, clearing, SEC 31 and FINRA TAF on sales, 0.3% borrow, Almgren impact on closing-auction volume; no spread on auction fills).</b> Capital ${cap_used/1e6:.0f}M (pre-specified capacity rule), 10% volatility target, gross ≤ 3×, drawdown brake. The prime-brokered-fund profile (auction fee passed through a broker, no rebates) is shown in the last two columns; retail costs were dropped as not applicable to the target firms. Sharpe ratios are annualised from daily net returns.")
     summ_rows = []
     for fam, s in val.items():
@@ -191,30 +225,6 @@ def build_report() -> Path:
     parts.append(_table(pd.DataFrame(fund_rows)))
     P("Reading the two tables together: the fund profile costs about 0.07 bp/day more than the exchange-member profile at $1M (per-share fee $0.0012 vs $0.0008 plus no rebates), which moves net Sharpe by roughly 0.02–0.05; the difference between profiles is immaterial next to the difference between windows.")
 
-    # ---- audit notice and post-audit table
-    pa = _load_json(RES / "post_audit" / "post_audit_results.json") or {}
-    H(3, "Red-team audit notice (2026-09-06) — read before using any number above")
-    P("An independent, fresh-context red-team review (reports/RED_TEAM_AUDIT.md; 22 findings, 2 critical, 6 high) found that the pre-audit numbers in the two tables above were produced by code with four material defects: (F1) the SPY hedge and the net-exposure correction were themselves gated by the limit-on-close fill rule, so the realized book carried an unhedged market exposure with standard deviation 0.20 of capital (target 0.05) whose sign flipped with the closing tape — about half of the 2005–2022 gross P&L was the product of that exposure and the next day's market return; (F2) the development grid ran from 2005 although the pre-registered rule set the start at the first date with ≥80% intraday coverage (2013-10-23), and the selected configuration's net Sharpe is 1.55 on 2005–2011 versus −0.35 on 2012–2018; (F3) the 15:40 eligibility mask used the full-day residual of day t (an end-of-day quantity); (F4) 'limit-on-close' entries that were cancelled became unconditional market-on-close fills the next day, so only ~20% of entries were actually LOC fills. Further findings: delisting rules were implemented in the engine but never wired into the research runs (F15), pre-split dividends were mis-scaled on split-adjusted intraday series (F9), and several documents overclaimed ('beta-neutral', 'leakage-free', 'validation confirmed development almost exactly'). <b>The reviewer's classification: D for the positive DEV/VAL claims as originally stated; the negative holdout conclusion stands; after repairs the study is a research-quality C.</b> All four code defects plus F9 and F15 were repaired on 2026-09-06 (six new unit tests), the documents were corrected, and the whole pipeline was rerun; the results are below and in the audit section. <b>The locked holdout file was not touched and is not re-run</b>: the 2023–2026 numbers in the post-audit table are a labelled diagnostic of the repaired code, not a second holdout.")
-    if pa:
-        rows = []
-        for key, fr in pa.get("families", {}).items():
-            fam, tag = key.split("@")
-            vm, vf = fr.get("val_market_maker", {}), fr.get("val_prime_brokered_fund", {})
-            dm, dfu = fr.get("diag_2023_2026_market_maker", {}), fr.get("diag_2023_2026_prime_brokered_fund", {})
-            rows.append({"strategy": fam, "DEV window": pa["dev_windows"].get(tag), "selected id": fr["selected_id"].replace("C-moc-", ""),
-                         "DEV net SR": fr["dev"]["net_sr"], "DSR (DEV)": fr["multiple_testing"].get("dsr"), "DEV net SR 2012–18": fr["dev_era"].get("sr_2012_2018"),
-                         "VAL net SR (mm)": vm.get("net_sr"), "VAL net ret/yr (mm)": vm.get("net_ann"), "VAL SR ex-2020–21": vm.get("era", {}).get("sr_ex_2020_2021"),
-                         "VAL net SR (fund)": vf.get("net_sr"),
-                         "2023–26 net SR (mm, diagnostic)": dm.get("net_sr"), "2023–26 net ret/yr (mm)": dm.get("net_ann"), "2023–26 max DD": dm.get("max_dd"),
-                         "2023–26 net SR (fund)": dfu.get("net_sr"), "realized net-exposure std (VAL)": vm.get("exposures", {}).get("net_std"),
-                         "market-component share of gross (VAL)": vm.get("market_component", {}).get("share")})
-        H(3, "Post-audit results (repaired pipeline; mm = market-maker profile)")
-        parts.append(_table(pd.DataFrame(rows)))
-        P("Selection on each development window used the unchanged pre-specified rule (max DEV net Sharpe subject to gross ≤ 3, turnover ≤ 2.5, neighbour stability). The pre-registered window (2013-10-23 → 2018-12-14) is the primary; the 2005 window is shown because the pre-audit numbers were produced on it.")
-    else:
-        P("<i>Post-audit rerun pending (results/post_audit/post_audit_results.json not found).</i>")
-    P("Interpretation and the A–D classification are in the Conclusion section; the headline figure is always the net-of-cost result on data not used for design.")
-
     # ---------------- research question, hypothesis, literature
     H(2, "Research question and economic hypothesis")
     P("Does company-specific (residual) short-term price pressure in liquid U.S. stocks still reverse enough, after realistic exchange-member costs and with orders a firm can actually place (market-on-close and limit-on-close), to be traded profitably when news-driven moves are filtered out ex ante? Mechanism: temporary liquidity demand pushes a stock away from its factor-implied value; once the urgent trader is done the price drifts back (Nagel 2012; Blitz, Huij, Lansdorp & Verbeek 2013). News-driven moves should continue rather than reverse (Chan 2003; Tetlock 2011); the premium should rise with market stress (Nagel 2012).")
@@ -222,7 +232,7 @@ def build_report() -> Path:
     show = reg[["experiment_id", "trial_type", "hypothesis", "actual_result", "decision"]].copy()
     show = show[~show["experiment_id"].str.startswith("C-moc")]
     parts.append(_table(show))
-    n_cand = int((reg["trial_type"] == "candidate").sum())
+    n_cand = int(reg["experiment_id"].astype(str).str.startswith("C-moc-").sum())
     P(f"Candidate configurations registered and run on the development sample: <b>{n_cand}</b> (each counted in the Deflated Sharpe Ratio of its family). Diagnostics and placebos are never counted as candidates.")
 
     # ---------------- data
@@ -311,7 +321,14 @@ def build_report() -> Path:
     # ---------------- holdout
     H(2, "Locked holdout (2023-01-03 → 2026-08-31): single run, immutable")
     if hold:
-        parts.append("<pre class='doc'>" + json.dumps(hold, indent=1, default=str)[:6000] + "</pre>")
+        m = hold.get("manifest", {})
+        P(f"Manifest: git {m.get('git')}, config hash {m.get('config_hash')}, data snapshot {m.get('data_snapshot_sha256')}, capital ${m.get('capital', 0)/1e6:.0f}M, frozen {m.get('frozen_at_utc', '')[:19]} UTC, run {hold.get('run_at_utc', '')[:19]} UTC.")
+        hrows = []
+        for fam, hf in hold.get("families", {}).items():
+            for v, r in hf.get("variants", {}).items():
+                hrows.append({"family": fam, "variant": v, "net SR": r.get("net_sharpe"), "gross SR": r.get("gross_sharpe"), "net ret/yr": r.get("net_ann"), "net vol": r.get("net_vol"), "max DD": r.get("max_dd"), "turnover": r.get("turnover"), "cost bp/day": r.get("cost_bp"),
+                              "SR 95% CI": (f"{r['sharpe_ci95'][0]:.2f} .. {r['sharpe_ci95'][1]:.2f}" if r.get("sharpe_ci95") else ""), "yearly net": ", ".join(f"{k}: {val*100:+.1f}%" for k, val in (r.get("yearly_net") or {}).items())})
+        parts.append(_table(pd.DataFrame(hrows)))
         for fam in hold.get("families", {}):
             f = RES / "holdout" / f"daily_HOLDOUT_{fam}.csv"
             if f.exists():
@@ -350,7 +367,7 @@ def build_report() -> Path:
         for key, fr in pa.get("families", {}).items():
             fam, tag = key.split("@")
             H(3, f"{fam} — development window {pa['dev_windows'].get(tag)} → 2018-12-14")
-            P(f"Selected: <code>{fr['selected_id']}</code>; DEV net SR {fr['dev']['net_sr']:.2f} (gross {fr['dev']['gross_sr']:.2f}), DSR {fr['multiple_testing'].get('dsr', float('nan')):.2f}, PBO {fr['multiple_testing'].get('pbo_cscv') if fr['multiple_testing'].get('pbo_cscv') is not None else 'n/a'}; DEV era: 2005–11 {fr['dev_era'].get('sr_2005_2011')}, 2012–18 {fr['dev_era'].get('sr_2012_2018')}, ex-2008 {fr['dev_era'].get('sr_ex_2008')}.")
+            P(f"Selected: <code>{fr['selected_id']}</code>; DEV net SR {fr['dev']['net_sr']:.2f} (gross {fr['dev']['gross_sr']:.2f}), DSR {_fmt2(fr['multiple_testing'].get('dsr'))}, PBO {_fmt2(fr['multiple_testing'].get('pbo_cscv'))}; DEV era: 2005–11 {fr['dev_era'].get('sr_2005_2011')}, 2012–18 {fr['dev_era'].get('sr_2012_2018')}, ex-2008 {fr['dev_era'].get('sr_ex_2008')}.")
             era_rows = []
             for wname in ("val_market_maker", "val_prime_brokered_fund", "diag_2023_2026_market_maker", "diag_2023_2026_prime_brokered_fund"):
                 w = fr.get(wname, {})
@@ -412,7 +429,7 @@ def build_report() -> Path:
         P("Return columns: <i>as run</i> = net return on capital under the applied leverage policy (10% vol target on the targeted book, gross ≤ 3×, drawdown brake); <i>unlevered</i> = as-run return divided by the window-average realized gross exposure (return per 1× gross book); <i>at 10% vol</i> = as-run return scaled linearly to the volatility target (an upper bound: impact grows superlinearly and the implied gross may exceed the 3× cap, see the 'gross needed' column).")
         for key, fr in fm["families"].items():
             fam, tag = key.split("@")
-            H(3, f"{fam} (selected on {fr['dev_window'][0]} → {fr['dev_window'][1]}): <code>{fr['selected_id'].replace('C-moc-', '')}</code> — DSR {fr['multiple_testing'].get('dsr', float('nan')):.2f}, PBO {fr['multiple_testing'].get('pbo_cscv') if fr['multiple_testing'].get('pbo_cscv') is not None else 'n/a'}")
+            H(3, f"{fam} (selected on {fr['dev_window'][0]} → {fr['dev_window'][1]}): <code>{fr['selected_id'].replace('C-moc-', '')}</code> — DSR {_fmt2(fr['multiple_testing'].get('dsr'))}, PBO {_fmt2(fr['multiple_testing'].get('pbo_cscv'))}")
             yrows = []
             for prof, pr in fr["profiles"].items():
                 yr = {}
