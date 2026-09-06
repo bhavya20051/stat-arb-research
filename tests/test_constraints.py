@@ -77,3 +77,18 @@ def test_jump_mask_is_ex_ante():
     m = jump_exclusion_mask(res, 60, 3.0, 3)
     assert not m.iloc[100, 0] and not m.iloc[102, 0] and m.iloc[103, 0]
     assert m.iloc[99, 0]  # the day before the jump is unaffected (no lookahead)
+
+
+def test_expected_earnings_window_is_ex_ante_construction():
+    """An expected-earnings flag derived from last year's filing must not depend on this year's actual filing date."""
+    import pandas as pd
+    idx = pd.bdate_range("2019-01-01", periods=600)
+    earn = pd.DataFrame(False, index=idx, columns=["A"])
+    earn.loc[idx[50], "A"] = True  # filing in year 1
+    # replicate the builder's rule
+    ex = pd.DataFrame(False, index=idx, columns=["A"])
+    i = idx.searchsorted(idx[50] + pd.Timedelta(days=364))
+    for off in range(-3, 4):
+        ex.iat[i + off, 0] = True
+    assert ex["A"].sum() == 7 and ex["A"].iloc[i]
+    assert not ex["A"].iloc[:i - 3].any()

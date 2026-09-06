@@ -44,7 +44,11 @@ class StrategySpec:
     end: str | None = None
     label: str = "base"
     signal_lag_days: int = 0          # 1 = conservative daily-only proxy for MOC (signal from t-1 data, fill close t)
-    cost_profile: str = "institutional"
+    cost_profile: str = "market_maker"
+    beta_hedge: bool = True
+    sector_neutral: bool = True
+    pre_earnings_exclusion: bool = True
+    auction_participation: bool = True
     construction: str = "quantile"    # quantile | hysteresis
     limit_delta: float = 0.5
     limit_through: float = 0.0005
@@ -76,7 +80,15 @@ def build_weights(spec: StrategySpec, feats: dict) -> pd.DataFrame:
     intraday_exec = spec.execution in ("moc", "limit", "loc")
     key = f"score_moc_k{spec.lookback}" if intraday_exec and f"score_moc_k{spec.lookback}" in feats else f"score_k{spec.lookback}"
     elig_key = "eligible_moc" if intraday_exec and "eligible_moc" in feats else "eligible"
-    score = feats[key].where(feats[elig_key])
+    elig = feats[elig_key]
+    if spec.pre_earnings_exclusion and "expected_earnings" in feats:
+        ee = feats["expected_earnings"].reindex_like(elig).fillna(False)
+        # exclude if an expected earnings date falls within the next `holding` trading days (known ex ante)
+        upcoming = ee.astype(float)
+        for k in range(1, spec.holding + 1):
+            upcoming = upcoming + ee.shift(-k).astype(float).fillna(0.0)   # ee is an EX-ANTE expected-date panel (built from last year's dates), so looking ahead in it is not lookahead
+        elig = elig & (upcoming == 0)
+    score = feats[key].where(elig)
     if spec.turnover_bucket:
         tq = feats["abn_turnover"].rank(axis=1, pct=True)
         m = tq <= 1 / 3 if spec.turnover_bucket == "low" else tq > 2 / 3
@@ -90,8 +102,11 @@ def build_weights(spec: StrategySpec, feats: dict) -> pd.DataFrame:
         if spec.holding > 1:  # overlapping tranches: average of the last `holding` days' target books
             w = w.rolling(spec.holding, min_periods=1).mean()
     w = cap_weights(w, spec.max_name)
-    if "beta" in feats:
-        w = beta_hedge(w, feats["beta"], "SPY")
+    if spec.sector_neutral and "sector" in feats:
+        from statarb.portfolio.construct import neutralize_sector
+        w = neutralize_sector(w, feats["sector"].reindex_like(w))
+    if spec.beta_hedge and "beta" in feats:
+        w = beta_hedge(w, feats["beta"].reindex_like(w).shift(1).fillna(0.0), "SPY")  # beta known at t-1
     if spec.vol_target_annual:
         port_ret_proxy = (w.shift(1) * feats["ret"].reindex_like(w).fillna(0)).sum(axis=1)
         est = port_ret_proxy.rolling(60, min_periods=20).std(ddof=1).shift(1) * np.sqrt(252)
@@ -152,7 +167,9 @@ def run(spec: StrategySpec, feats: dict | None = None, cost_multiplier: float = 
     inp = EngineInputs(target_weights=w, fill_price=fill, fill_volume=vol.reindex(w.index), lag=lag, mark_price=mark,
                        half_spread=(feats["spread"].reindex_like(w) / 2) if "spread" in feats else None,
                        sigma_daily=feats["ret"].rolling(60, min_periods=20).std().shift(1).reindex_like(w) if "ret" in feats else None,
-                       adv_shares=vol.rolling(60, min_periods=20).mean().shift(1).reindex(w.index),
+                       adv_shares=(feats["auction_vol_proxy"].reindex(index=w.index, columns=syms).rolling(60, min_periods=20).mean().shift(1)
+                                   if (spec.auction_participation and spec.execution in ("moc", "loc") and "auction_vol_proxy" in feats)
+                                   else vol.rolling(60, min_periods=20).mean().shift(1).reindex(w.index)),
                        delist=feats.get("delist"))
     costs = cost_params_from_config(spec.execution, cost_multiplier, extra_bp, spec.cost_profile)
     out = run_backtest(inp, spec.capital, costs)

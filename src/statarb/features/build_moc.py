@@ -72,6 +72,22 @@ def build(lookbacks=(1, 2, 3), decision_time: str = "15:40") -> dict[str, pd.Dat
     feats["eligible_moc"] = (elig[have].reindex(idx).fillna(False) & p1545[have].reindex(idx).notna() & ~flag
                              & sane.fillna(False) & (reliability >= 0.95).fillna(False))
     feats["auction_vol_proxy"] = auction_volume_proxy(have).reindex(idx)
+    feats["beta_spy"] = betas["SPY"].reindex(idx)  # runner shifts by one day
+    sec_panel = pd.DataFrame({s: sector_of.get(s, "SPY") for s in have}, index=idx)
+    feats["sector"] = sec_panel
+    # ex-ante expected earnings dates: each past 2.02 event day implies an expected event ~1 year later (+/- 3 trading days)
+    ex = pd.DataFrame(False, index=idx, columns=have)
+    e_arr = earn.to_numpy()
+    pos = {d: i for i, d in enumerate(idx)}
+    for j, s in enumerate(have):
+        days = idx[e_arr[:, j]]
+        for d in days:
+            target = d + pd.Timedelta(days=364)
+            i = idx.searchsorted(target)
+            for off in range(-3, 4):
+                if 0 <= i + off < len(idx):
+                    ex.iat[i + off, j] = True
+    feats["expected_earnings"] = ex
     for name, df in feats.items():
         df.to_parquet(OUT / f"{name}.parquet")
     return feats

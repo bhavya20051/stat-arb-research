@@ -41,6 +41,11 @@ def load_feats() -> dict:
              "eligible_moc": load_moc("eligible_moc")}
     for k in (1, 2, 3):
         feats[f"score_moc_k{k}"] = load_moc(f"score_moc_k{k}")
+    for extra in ("auction_vol_proxy", "beta_spy", "expected_earnings", "sector"):
+        try:
+            feats[extra if extra != "beta_spy" else "beta"] = load_moc(extra)
+        except FileNotFoundError:
+            pass
     return feats
 
 
