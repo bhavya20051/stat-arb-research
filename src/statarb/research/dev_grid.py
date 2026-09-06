@@ -24,10 +24,11 @@ from statarb.research.registry import _read, record, register
 OUT = REPO_ROOT / "results" / "dev" / "grid"
 
 GRID = {
-    "lookback": [1, 2, 3],
+    "lookback": [1, 3],
     "holding": [1, 2, 3],
     "n_deciles": [5, 10],
     "vix_gate": ["none", "linear"],
+    "exec": ["moc", "loc0.5", "loc1.0"],
 }
 
 
@@ -58,7 +59,10 @@ def run_grid(dev_end: str = "2018-12-14", write_rows: bool = True) -> pd.DataFra
                      features="residual reversal score, VIX", model="rank portfolio (quantile), vol-target 10%, caps 2%",
                      parameters=json.dumps(d), train_period=f"DEV intraday start -> {dev_end}", validation_period="none (DEV)",
                      expected_result="net Sharpe > 0", falsification_condition="net Sharpe <= 0 on DEV")
-        spec = StrategySpec(execution="moc", band=0.0, end=dev_end, label=cid, **d)
+        ex = d["exec"]
+        kw = {k: v for k, v in d.items() if k != "exec"}
+        spec = StrategySpec(execution="loc" if ex.startswith("loc") else "moc", limit_delta=float(ex[3:]) if ex.startswith("loc") else 0.5,
+                            band=0.0, end=dev_end, label=cid, **kw)
         out, s = run(spec, feats, write=False)
         series[cid] = out["net_ret"]
         r = {"id": cid, **d, "gross_sr": s["gross"]["sharpe_ann"], "net_sr": s["net"]["sharpe_ann"],
