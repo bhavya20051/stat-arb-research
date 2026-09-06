@@ -69,8 +69,10 @@ def build(lookbacks=(1, 2, 3), decision_time: str = "15:40") -> dict[str, pd.Dat
     agree = ((r_int - r_day).abs() <= 0.01).where(r_int.notna() & r_day.notna())
     reliability = agree.rolling(60, min_periods=30).mean().shift(1)
     feats["intraday_reliability"] = reliability
-    feats["eligible_moc"] = (elig[have].reindex(idx).fillna(False) & p1545[have].reindex(idx).notna() & ~flag
-                             & sane.fillna(False) & (reliability >= 0.95).fillna(False))
+    base = (elig[have].reindex(idx).fillna(False) & p1545[have].reindex(idx).notna()
+            & sane.fillna(False) & (reliability >= 0.95).fillna(False))
+    feats["eligible_base"] = base          # data-quality eligibility WITHOUT the news exclusion (drift strategy)
+    feats["eligible_moc"] = base & ~flag   # reversal strategies: no-news names only
     feats["auction_vol_proxy"] = auction_volume_proxy(have).reindex(idx)
     feats["beta_spy"] = betas["SPY"].reindex(idx)  # runner shifts by one day
     sec_panel = pd.DataFrame({s: sector_of.get(s, "SPY") for s in have}, index=idx)

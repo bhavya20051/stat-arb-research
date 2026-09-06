@@ -41,6 +41,15 @@ GRID_EVENT = {
 }
 
 
+GRID_DRIFT = {   # third strategy: earnings-8-K drift (PEAD replication under our timing/cost model)
+    "lookback": [1],
+    "holding": [1, 3, 5, 10],
+    "entry_z": [1.0, 2.0],
+    "vix_gate": ["none"],
+    "exec": ["moc"],
+}
+
+
 def candidate_id(d: dict) -> str:
     return "C-moc-" + "-".join(f"{k}{v}" for k, v in d.items())
 
@@ -50,7 +59,7 @@ def load_feats() -> dict:
              "eligible_moc": load_moc("eligible_moc")}
     for k in (1, 2, 3):
         feats[f"score_moc_k{k}"] = load_moc(f"score_moc_k{k}")
-    for extra in ("auction_vol_proxy", "beta_spy", "expected_earnings", "sector"):
+    for extra in ("auction_vol_proxy", "beta_spy", "expected_earnings", "sector", "eligible_base", "earnings_flag_1540"):
         try:
             feats[extra if extra != "beta_spy" else "beta"] = load_moc(extra)
         except FileNotFoundError:
@@ -65,6 +74,7 @@ def run_grid(dev_end: str = "2018-12-14", write_rows: bool = True) -> pd.DataFra
     rows, series = [], {}
     combos = [dict(zip(GRID.keys(), c)) for c in itertools.product(*GRID.values())]
     combos += [{"construction": "event", **dict(zip(GRID_EVENT.keys(), c))} for c in itertools.product(*GRID_EVENT.values())]
+    combos += [{"construction": "event", "signal": "earnings_drift", **dict(zip(GRID_DRIFT.keys(), c))} for c in itertools.product(*GRID_DRIFT.values())]
     for d in combos:
         cid = candidate_id(d)
         if cid not in existing and write_rows:

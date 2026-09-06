@@ -52,6 +52,7 @@ class StrategySpec:
     pre_earnings_exclusion: bool = True
     auction_participation: bool = True
     construction: str = "quantile"    # quantile | hysteresis | event
+    signal: str = "reversal"          # reversal | earnings_drift (third strategy: go WITH the move on earnings-8-K days)
     entry_z: float = 2.0
     limit_delta: float = 0.5
     limit_through: float = 0.0005
@@ -84,7 +85,9 @@ def build_weights(spec: StrategySpec, feats: dict) -> pd.DataFrame:
     key = f"score_moc_k{spec.lookback}" if intraday_exec and f"score_moc_k{spec.lookback}" in feats else f"score_k{spec.lookback}"
     elig_key = "eligible_moc" if intraday_exec and "eligible_moc" in feats else "eligible"
     elig = feats[elig_key]
-    if spec.pre_earnings_exclusion and "expected_earnings" in feats:
+    if spec.signal == "earnings_drift":
+        elig = feats["eligible_base"] & feats["earnings_flag_1540"].reindex_like(feats["eligible_base"]).fillna(False)
+    if spec.pre_earnings_exclusion and spec.signal == "reversal" and "expected_earnings" in feats:
         ee = feats["expected_earnings"].reindex_like(elig).fillna(False)
         # exclude if an expected earnings date falls within the next `holding` trading days (known ex ante)
         upcoming = ee.astype(float)
@@ -92,6 +95,8 @@ def build_weights(spec: StrategySpec, feats: dict) -> pd.DataFrame:
             upcoming = upcoming + ee.shift(-k).astype(float).fillna(0.0)   # ee is an EX-ANTE expected-date panel (built from last year's dates), so looking ahead in it is not lookahead
         elig = elig & (upcoming == 0)
     score = feats[key].where(elig)
+    if spec.signal == "earnings_drift":
+        score = -score  # continuation: positive residual move -> long
     if spec.turnover_bucket:
         tq = feats["abn_turnover"].rank(axis=1, pct=True)
         m = tq <= 1 / 3 if spec.turnover_bucket == "low" else tq > 2 / 3
