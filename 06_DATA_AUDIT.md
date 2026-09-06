@@ -78,3 +78,6 @@ Handling: the gap is reported alongside every DEV result; the 2005–2011 DEV ye
 
 ## Spread-estimator check (2026-09-05)
 Range-based spread estimates (Corwin–Schultz / Abdi–Ranaldo, 21-day) give a median full spread of 42–56 bp per year for eligible S&P 500 names (2018 p10/p50/p90 = 28/52/100 bp), about ten times the quoted spreads of these stocks. The estimators are therefore rejected as a cost basis for large caps (registry COST-2); the primary execution models use auction or resting-limit fills that pay no spread.
+
+## Membership cross-check vs Wikipedia (2026-09-05)
+Current 503 constituents identical in FMP and Wikipedia; 'date added' agrees exactly for 98.2% of names (99.0% within 7 days). The remaining differences are the GOOG/GOOGL share-class listing dates and DowDuPont's 2019 reorganisation. Wikipedia no longer publishes the historical change table, so historical membership relies on FMP's change list (registry UNIV-1).
