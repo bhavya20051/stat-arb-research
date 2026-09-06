@@ -92,3 +92,16 @@ def test_expected_earnings_window_is_ex_ante_construction():
         ex.iat[i + off, 0] = True
     assert ex["A"].sum() == 7 and ex["A"].iloc[i]
     assert not ex["A"].iloc[:i - 3].any()
+
+
+def test_event_weights_cohorts_and_neutrality():
+    from statarb.portfolio.construct import event_weights
+    idx = pd.bdate_range("2020-01-01", periods=6)
+    sc = pd.DataFrame(0.0, index=idx, columns=["A", "B", "C", "D"])
+    sc.loc[idx[0], ["A", "B"]] = [2.5, -2.5]   # one long, one short on day 0
+    sc.loc[idx[1], "C"] = 3.0                   # one long on day 1
+    w = event_weights(sc, entry_z=2.0, holding=3, per_side_gross=0.5)
+    assert np.isclose(w.loc[idx[0], "A"], 0.5 / 3) and np.isclose(w.loc[idx[0], "B"], -0.5 / 3)
+    assert np.isclose(w.loc[idx[2], "A"], 0.5 / 3) and np.isclose(w.loc[idx[3], "A"], 0.0)  # held exactly 3 days
+    assert np.isclose(w.loc[idx[1], "C"], 0.5 / 3) and np.isclose(w.loc[idx[1], "A"], 0.5 / 3)  # cohorts overlap
+    assert w.loc[idx[5]].abs().sum() == 0.0

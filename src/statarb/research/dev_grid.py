@@ -32,6 +32,15 @@ GRID = {
 }
 
 
+GRID_EVENT = {
+    "lookback": [1, 3],
+    "holding": [1, 2, 3],
+    "entry_z": [2.0, 3.0],
+    "vix_gate": ["none", "linear"],
+    "exec": ["moc", "loc1.0"],
+}
+
+
 def candidate_id(d: dict) -> str:
     return "C-moc-" + "-".join(f"{k}{v}" for k, v in d.items())
 
@@ -54,8 +63,9 @@ def run_grid(dev_end: str = "2018-12-14", write_rows: bool = True) -> pd.DataFra
     feats = load_feats()
     existing = {r["experiment_id"] for r in _read()}
     rows, series = [], {}
-    for combo in itertools.product(*GRID.values()):
-        d = dict(zip(GRID.keys(), combo))
+    combos = [dict(zip(GRID.keys(), c)) for c in itertools.product(*GRID.values())]
+    combos += [{"construction": "event", **dict(zip(GRID_EVENT.keys(), c))} for c in itertools.product(*GRID_EVENT.values())]
+    for d in combos:
         cid = candidate_id(d)
         if cid not in existing and write_rows:
             register(cid, "candidate", hypothesis="MOC residual reversal, DEV candidate configuration",
@@ -67,7 +77,7 @@ def run_grid(dev_end: str = "2018-12-14", write_rows: bool = True) -> pd.DataFra
         ex = d["exec"]
         kw = {k: v for k, v in d.items() if k != "exec"}
         spec = StrategySpec(execution="loc" if ex.startswith("loc") else "moc", limit_delta=float(ex[3:]) if ex.startswith("loc") else 0.5,
-                            band=0.0, end=dev_end, label=cid, **kw)
+                            band=0.0, end=dev_end, label=cid, **kw)  # kw may include construction="event", entry_z
         out, s = run(spec, feats, write=False)
         series[cid] = out["net_ret"]
         r = {"id": cid, **d, "gross_sr": s["gross"]["sharpe_ann"], "net_sr": s["net"]["sharpe_ann"],

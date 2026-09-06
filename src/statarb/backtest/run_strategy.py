@@ -22,7 +22,7 @@ from statarb.config import REPO_ROOT, load_config
 from statarb.data.load import wide
 from statarb.execution.costs import CostParams
 from statarb.features.build import load_feature
-from statarb.portfolio.construct import apply_no_trade_band, beta_hedge, cap_weights, dollar_neutralize, enforce_limits, hysteresis_weights, vol_target
+from statarb.portfolio.construct import apply_no_trade_band, beta_hedge, cap_weights, dollar_neutralize, enforce_limits, event_weights, hysteresis_weights, vol_target
 from statarb.signals.reversal import decile_weights
 from statarb.statistics.metrics import summary_table
 
@@ -49,7 +49,8 @@ class StrategySpec:
     sector_neutral: bool = True
     pre_earnings_exclusion: bool = True
     auction_participation: bool = True
-    construction: str = "quantile"    # quantile | hysteresis
+    construction: str = "quantile"    # quantile | hysteresis | event
+    entry_z: float = 2.0
     limit_delta: float = 0.5
     limit_through: float = 0.0005
     enter_pct: float = 0.2
@@ -95,7 +96,9 @@ def build_weights(spec: StrategySpec, feats: dict) -> pd.DataFrame:
         score = score.where(m)
     if spec.turnover_bucket == "high":
         score = -score  # continuation sleeve: buy high-turnover winners
-    if spec.construction == "hysteresis":
+    if spec.construction == "event":
+        w = event_weights(score, spec.entry_z, spec.holding, per_side_gross=spec.gross / 2.0)
+    elif spec.construction == "hysteresis":
         w = hysteresis_weights(score, spec.enter_pct, spec.exit_pct, max_hold=spec.holding) * spec.gross
     else:
         w = decile_weights(score, n_deciles=spec.n_deciles) * (spec.gross / 2.0)

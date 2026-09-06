@@ -121,3 +121,27 @@ def hysteresis_weights(score: pd.DataFrame, enter_pct: float = 0.2, exit_pct: fl
         if ns:
             out[t, side < 0] = -0.5 / ns
     return pd.DataFrame(out, index=score.index, columns=score.columns)
+
+
+def event_weights(score: pd.DataFrame, entry_z: float = 2.0, holding: int = 3, per_side_gross: float = 0.5) -> pd.DataFrame:
+    """Event construction: on day t, every eligible name with score >= entry_z is bought and every name with
+    score <= -entry_z is shorted; each day's cohort receives per_side_gross/holding per side, split equally among that
+    day's entrants, and is held for exactly `holding` days with NO rebalancing (weights drift with price in the
+    engine).  Cohorts overlap, so the book holds up to `holding` cohorts per side.  Ex-ante: uses only score_t."""
+    S = score.to_numpy()
+    T, N = S.shape
+    out = np.zeros((T, N))
+    for t in range(T):
+        row = S[t]
+        longs = np.isfinite(row) & (row >= entry_z)
+        shorts = np.isfinite(row) & (row <= -entry_z)
+        nl, ns = longs.sum(), shorts.sum()
+        cohort = np.zeros(N)
+        if nl:
+            cohort[longs] = per_side_gross / holding / nl
+        if ns:
+            cohort[shorts] = -per_side_gross / holding / ns
+        for k in range(holding):
+            if t + k < T:
+                out[t + k] += cohort
+    return pd.DataFrame(out, index=score.index, columns=score.columns)
