@@ -136,8 +136,8 @@ def event_weights(score: pd.DataFrame, entry_z: float = 2.0, holding: int = 3, p
     # (trailing ref_window-day mean of daily entry counts through t-1), capped at max_name.
     n_long = np.array([(np.isfinite(r) & (r >= entry_z)).sum() for r in S], dtype=float)
     n_short = np.array([(np.isfinite(r) & (r <= -entry_z)).sum() for r in S], dtype=float)
-    exp_long = pd.Series(n_long).rolling(ref_window, min_periods=20).mean().shift(1).to_numpy()
-    exp_short = pd.Series(n_short).rolling(ref_window, min_periods=20).mean().shift(1).to_numpy()
+    exp_long = pd.Series(n_long).rolling(ref_window, min_periods=min(20, ref_window)).mean().shift(1).to_numpy()
+    exp_short = pd.Series(n_short).rolling(ref_window, min_periods=min(20, ref_window)).mean().shift(1).to_numpy()
     for t in range(T):
         row = S[t]
         longs = np.isfinite(row) & (row >= entry_z)
