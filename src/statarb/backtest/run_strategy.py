@@ -12,6 +12,7 @@ is avoided by using the dividend-adjusted series for returns and raw prices only
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 
 import numpy as np
@@ -197,13 +198,17 @@ def run(spec: StrategySpec, feats: dict | None = None, cost_multiplier: float = 
                                    else vol.rolling(60, min_periods=20).mean().shift(1).reindex(w.index)),
                        delist=feats.get("delist"))
     costs = cost_params_from_config(spec.execution, cost_multiplier, extra_bp, spec.cost_profile)
-    out = run_backtest(inp, spec.capital, costs)
+    engine = run_backtest
+    if os.environ.get("STATARB_ENGINE", "python") == "cpp":
+        from statarb.backtest.engine_cpp import run_backtest_cpp
+        engine = run_backtest_cpp
+    out = engine(inp, spec.capital, costs)
     if spec.drawdown_rule:
         cfg_dd = load_config("base")["portfolio"].get("drawdown_rule", {})
         mult = drawdown_scaler(out["net_ret"], cfg_dd.get("trigger", 0.10), cfg_dd.get("scale", 0.5), cfg_dd.get("release", 0.05))
         if (mult < 1.0).any():
             inp.target_weights = w.mul(mult.reindex(w.index).fillna(1.0), axis=0)
-            out = run_backtest(inp, spec.capital, costs)
+            out = engine(inp, spec.capital, costs)
             out["dd_multiplier"] = mult.reindex(out.index).fillna(1.0)
     summ = {"label": spec.label, "spec": spec.__dict__, "cost_multiplier": cost_multiplier,
             "gross": summary_table(out["gross_ret"]), "net": summary_table(out["net_ret"]),
