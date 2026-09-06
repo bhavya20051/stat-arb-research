@@ -25,9 +25,9 @@ Crowding and decay: Avellaneda & Lee document decay after 2002; later decay is c
 | Paper | Use in this project | Status |
 |---|---|---|
 | Corwin & Schultz (2012), "A simple way to estimate bid-ask spreads from daily high and low prices", JF 67(2) | Range-based spread estimator for continuous-session fills. | [to verify at M1b] |
-| Abdi & Ranaldo (2017), "A simple estimation of bid-ask spreads from daily close, high, and low prices", RFS 30(12) | Second estimator; basis = max of the two plus a liquidity floor. | [to verify at M1b] |
+| Abdi & Ranaldo (2017), "A simple estimation of bid-ask spreads from daily close, high, and low prices", RFS 30(12):4437–4480 | Spread estimator from the close and the daily mid-range on consecutive days. (Our pre-registered cost basis, not the paper's: max(Corwin–Schultz, Abdi–Ranaldo) plus a liquidity-bucket floor.) | [to verify at M1b] |
 | Ardia, Guidotti & Kroencke (2024), "Efficient estimation of bid-ask spreads from open, high, low, and close prices", JFE | Accuracy of range estimators in liquid names; sign of level bias. | [to verify at M1b] |
-| Almgren, Thum, Hauptmann & Li (2005), "Direct estimation of equity market impact" | Square-root impact model, k ≈ 1. | [to verify at M1b] |
+| Almgren, Thum, Hauptmann & Li (2005), "Direct estimation of equity market impact", Risk 18:57–62 | Temporary impact estimated as a 3/5-power law in participation with coefficient ≈ 0.142 (the paper rejects the pure square-root form). Our cost model uses k = 0.142, exponent 0.6; the originally pre-registered sqrt/k = 1 form is kept only as a stress variant (registry COST-1). | [to verify at M1b — PDF paywalled to the verification worker; verify from the author copy] |
 | Shumway (1997), "The delisting bias in CRSP data", JF 52(1) | −30% convention for performance delistings of unknown return. | [to verify at M1b] |
 | Lo (2002), "The statistics of Sharpe ratios", FAJ 58(4) | Sharpe standard error with autocorrelation. | [to verify at M1b] |
 | Bailey & López de Prado (2012) J. Risk 15(2); (2014) "The deflated Sharpe ratio", JPM 40(5) | PSR and DSR; SR* = √V[SR]·((1−γ)Φ⁻¹(1−1/N) + γΦ⁻¹(1−1/(N·e))). | [verified during plan review against the author's copy at davidhbailey.com] |
