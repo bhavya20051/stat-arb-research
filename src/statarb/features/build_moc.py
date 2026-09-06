@@ -15,7 +15,7 @@ import pandas as pd
 
 from statarb.data.load import PROC, wide
 from statarb.features.build import SECTOR_ETFS, load_feature, sector_map
-from statarb.features.intraday import auction_volume_proxy, decision_price_panel, moc_score, rolling_betas
+from statarb.features.intraday import auction_volume_proxy, decision_price_panel, moc_score, rolling_betas, volume_until
 from statarb.news.flags import earnings_days_from_8k, tier1_8k_flags
 
 OUT = PROC / "features_moc"
@@ -90,6 +90,25 @@ def build(lookbacks=(1, 2, 3), decision_time: str = "15:40") -> dict[str, pd.Dat
                 if 0 <= i + off < len(idx):
                     ex.iat[i + off, j] = True
     feats["expected_earnings"] = ex
+    # ex-ante abnormal intraday turnover: volume through 15:45 today / trailing 60-day mean of the same quantity (t-1)
+    v1545 = volume_until(have, "15:45").reindex(index=idx, columns=have)
+    feats["abn_turnover_1545"] = v1545 / v1545.shift(1).rolling(60, min_periods=20).mean().replace(0, np.nan)
+    # earnings-filing timing bucket at the decision day: "after_hours" (accepted after 15:40 on the prior day or
+    # before 09:30 today) vs "intraday" (accepted 09:30-15:40 today)
+    from statarb.news.edgar import assign_event_day
+    ev = pd.read_parquet(PROC / "events_8k.parquet")
+    ev = ev[ev["symbol"].isin(have) & ev["items_list"].str.contains("2.02")].copy()
+    ev["accepted_et"] = pd.to_datetime(ev["accepted_et"], utc=True).dt.tz_convert("America/New_York")
+    ev["event_day"] = assign_event_day(ev["accepted_et"], idx, decision_time)
+    ev = ev.dropna(subset=["event_day"])
+    hm = ev["accepted_et"].dt.hour * 60 + ev["accepted_et"].dt.minute
+    same_day = ev["accepted_et"].dt.tz_localize(None).dt.normalize() == pd.to_datetime(ev["event_day"])
+    ev["timing"] = np.where(same_day & (hm >= 9 * 60 + 30), "intraday", "after_hours")
+    timing = pd.DataFrame("", index=idx, columns=have, dtype=object)
+    for r in ev.itertuples(index=False):
+        if r.event_day in timing.index:
+            timing.at[r.event_day, r.symbol] = r.timing
+    feats["earnings_timing_1540"] = timing
     for name, df in feats.items():
         df.to_parquet(OUT / f"{name}.parquet")
     return feats

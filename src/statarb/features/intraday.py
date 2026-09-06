@@ -84,3 +84,18 @@ def moc_score(p1545: pd.DataFrame, adj_close: pd.DataFrame, factor_p1545: pd.Dat
         total = total + resid_daily.shift(1).rolling(lookback - 1, min_periods=lookback - 1).sum().reindex_like(total)
     vol = resid_vol_lag.reindex_like(total) * np.sqrt(lookback)
     return -(total / vol.replace(0.0, np.nan))
+
+
+def volume_until(symbols: list[str], cutoff: str = "15:45") -> pd.DataFrame:
+    """Per-day sum of 15-min bar volume for bars starting before `cutoff` (known at the decision time)."""
+    hh, mm = (int(x) for x in cutoff.split(":"))
+    cols = {}
+    for s in symbols:
+        f = PROC / "intraday_15min" / f"{s}.parquet"
+        if not f.exists():
+            continue
+        df = pd.read_parquet(f, columns=["ts", "volume"])
+        ts = pd.to_datetime(df["ts"])
+        keep = (ts.dt.hour * 60 + ts.dt.minute) < hh * 60 + mm
+        cols[s] = df[keep].groupby(ts[keep].dt.normalize())["volume"].sum()
+    return pd.DataFrame(cols).sort_index()

@@ -53,6 +53,8 @@ class StrategySpec:
     auction_participation: bool = True
     construction: str = "quantile"    # quantile | hysteresis | event
     signal: str = "reversal"          # reversal | earnings_drift (third strategy: go WITH the move on earnings-8-K days)
+    drift_volume_bucket: str | None = None   # STRAT-4: high | low abnormal intraday turnover tercile among earnings movers
+    drift_timing: str | None = None          # STRAT-5: after_hours | intraday filing timing
     entry_z: float = 2.0
     limit_delta: float = 0.5
     limit_through: float = 0.0005
@@ -87,6 +89,12 @@ def build_weights(spec: StrategySpec, feats: dict) -> pd.DataFrame:
     elig = feats[elig_key]
     if spec.signal == "earnings_drift":
         elig = feats["eligible_base"] & feats["earnings_flag_1540"].reindex_like(feats["eligible_base"]).fillna(False)
+        if spec.drift_volume_bucket and "abn_turnover_1545" in feats:
+            a = feats["abn_turnover_1545"].reindex_like(elig).where(elig)
+            tq = a.rank(axis=1, pct=True)
+            elig = elig & ((tq > 2 / 3) if spec.drift_volume_bucket == "high" else (tq <= 1 / 3)).fillna(False)
+        if spec.drift_timing and "earnings_timing_1540" in feats:
+            elig = elig & (feats["earnings_timing_1540"].reindex_like(elig) == spec.drift_timing)
     if spec.pre_earnings_exclusion and spec.signal == "reversal" and "expected_earnings" in feats:
         ee = feats["expected_earnings"].reindex_like(elig).fillna(False)
         # exclude if an expected earnings date falls within the next `holding` trading days (known ex ante)
