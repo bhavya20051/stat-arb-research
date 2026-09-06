@@ -6,17 +6,17 @@ Date: 2026-09-05. Items marked [verified] were located on the publisher/reposito
 
 | Paper | Finding relevant to this project | Pre/post cost | Status |
 |---|---|---|---|
-| Lehmann (1990), "Fads, martingales, and market efficiency", QJE 105(1) | Weekly winners/losers reverse; profits sensitive to costs. | mostly pre-cost | [to verify at M1b] |
-| Jegadeesh (1990), "Evidence of predictable behavior of security returns", JF 45(3) | Strong one-month reversal in US stocks. | pre-cost | [to verify at M1b] |
-| Campbell, Grossman & Wang (1993), QJE 108(4) | Reversal after high-volume days is consistent with non-informational (liquidity) trading; volume conditions the reversal. | theory + evidence | [to verify at M1b] |
+| Lehmann (1990), "Fads, martingales, and market efficiency", QJE 105(1) | Weekly winners/losers reverse; profits sensitive to costs. | mostly pre-cost | [verified 2026-09-05 — see reports/literature_verification.csv] |
+| Jegadeesh (1990), "Evidence of predictable behavior of security returns", JF 45(3) | Strong one-month reversal in US stocks. | pre-cost | [verified 2026-09-05 — see reports/literature_verification.csv] |
+| Campbell, Grossman & Wang (1993), QJE 108(4) | Reversal after high-volume days is consistent with non-informational (liquidity) trading; volume conditions the reversal. | theory + evidence | [verified 2026-09-05 — see reports/literature_verification.csv] |
 | Avellaneda & Lee (2010), "Statistical arbitrage in the US equities market", Quantitative Finance 10(7):761–782, doi 10.1080/14697680903124632 | PCA/ETF-residual mean-reversion strategies: Sharpe ≈1.44 (1997–2007) after their cost model, ≈0.9 in 2003–2007; degradation after 2002; stress in summer 2007. | post-cost (their model) | [verified — publisher page and SSRN 1153505] |
 | Nagel (2012), "Evaporating liquidity", RFS 25(7):2005–2039 | Short-term reversal returns proxy the return to liquidity provision; predictable by VIX; expected returns spike in turmoil. | mostly pre-cost | [verified — OUP abstract, NBER w17653] |
 | De Groot, Huij & Zhou (2012), "Another look at trading costs and short-term reversal profits", JBF | Costs eat reversal profits in small caps; large caps plus turnover-aware construction leave 30–50 bp/week net. | post-cost | [verified — SSRN 1605049 / RePub 25718] |
 | Blitz, Huij, Lansdorp & Verbeek (2013), "Short-term residual reversal", JFM 16(3):477–504, doi 10.1016/j.finmar.2012.10.005 | Reversal on residual returns has ~2× the risk-adjusted return of conventional reversal and stays significant net of costs in large caps post-1990. | post-cost | [verified — publisher page, SSRN 1911449] |
-| Da, Liu & Schaumburg (2014), "A closer look at the short-term return reversal", Management Science 60(3) | Across-industry (fundamental) vs within-industry residual reversal; the residual part is the robust liquidity-driven component. | pre/post | [to verify at M1b] |
+| Da, Liu & Schaumburg (2014), "A closer look at the short-term return reversal", Management Science 60(3):658–674 | Decomposes reversal into a fundamental (cash-flow-news) part and a residual (non-fundamental) part; only the residual part earns significant reversal profits, driven by liquidity on the loser side and by sentiment / short-sale constraints on the winner side. | pre/post | [verified 2026-09-05, NY Fed staff report page; mechanism wording corrected] |
 | Medhat & Schmeling (2022), "Short-term momentum", RFS 35(3):1480–1533 | Low-turnover stocks reverse; high-turnover stocks show short-term momentum that survives costs and is strongest in the largest, most liquid stocks. | post-cost | [verified — OUP page, SSRN 3150525] |
-| Chan (2003), "Stock price reaction to news and no-news", JFE 70(2) | Reversal after large no-news moves; drift after news moves. | pre-cost | [to verify at M1b] |
-| Tetlock (2011), "All the news that's fit to reprint", RFS 24(5) | Stale-news moves reverse; genuinely new information continues. | pre-cost | [to verify at M1b] |
+| Chan (2003), "Stock price reaction to news and no-news", JFE 70(2):223–260 | Reversal after large no-news moves; drift after news moves. | pre-cost | [UNVERIFIED — publisher and mirrors returned 403; cited from the author's knowledge, flagged in the report] |
+| Tetlock (2011), "All the news that's fit to reprint", RFS 24(5) | Stale-news moves reverse; genuinely new information continues. | pre-cost | [verified 2026-09-05 — see reports/literature_verification.csv] |
 
 Crowding and decay: Avellaneda & Lee document decay after 2002; later decay is commonly attributed to reversal harvesting migrating to intraday horizons. This project treats "the effect has weakened" as the null and tests whether a slower, cost-aware, news-filtered, regime-scaled version still pays on 2023–2026 data.
 
@@ -24,15 +24,15 @@ Crowding and decay: Avellaneda & Lee document decay after 2002; later decay is c
 
 | Paper | Use in this project | Status |
 |---|---|---|
-| Corwin & Schultz (2012), "A simple way to estimate bid-ask spreads from daily high and low prices", JF 67(2) | Range-based spread estimator for continuous-session fills. | [to verify at M1b] |
-| Abdi & Ranaldo (2017), "A simple estimation of bid-ask spreads from daily close, high, and low prices", RFS 30(12):4437–4480 | Spread estimator from the close and the daily mid-range on consecutive days. (Our pre-registered cost basis, not the paper's: max(Corwin–Schultz, Abdi–Ranaldo) plus a liquidity-bucket floor.) | [to verify at M1b] |
-| Ardia, Guidotti & Kroencke (2024), "Efficient estimation of bid-ask spreads from open, high, low, and close prices", JFE | Accuracy of range estimators in liquid names; sign of level bias. | [to verify at M1b] |
-| Almgren, Thum, Hauptmann & Li (2005), "Direct estimation of equity market impact", Risk 18:57–62 | Temporary impact estimated as a 3/5-power law in participation with coefficient ≈ 0.142 (the paper rejects the pure square-root form). Our cost model uses k = 0.142, exponent 0.6; the originally pre-registered sqrt/k = 1 form is kept only as a stress variant (registry COST-1). | [to verify at M1b — PDF paywalled to the verification worker; verify from the author copy] |
-| Shumway (1997), "The delisting bias in CRSP data", JF 52(1) | −30% convention for performance delistings of unknown return. | [to verify at M1b] |
-| Lo (2002), "The statistics of Sharpe ratios", FAJ 58(4) | Sharpe standard error with autocorrelation. | [to verify at M1b] |
+| Corwin & Schultz (2012), "A simple way to estimate bid-ask spreads from daily high and low prices", JF 67(2) | Range-based spread estimator for continuous-session fills. | [verified 2026-09-05 — see reports/literature_verification.csv] |
+| Abdi & Ranaldo (2017), "A simple estimation of bid-ask spreads from daily close, high, and low prices", RFS 30(12):4437–4480 | Spread estimator from the close and the daily mid-range on consecutive days. (Our pre-registered cost basis, not the paper's: max(Corwin–Schultz, Abdi–Ranaldo) plus a liquidity-bucket floor.) | [verified 2026-09-05 — see reports/literature_verification.csv] |
+| Ardia, Guidotti & Kroencke (2024), "Efficient estimation of bid-ask spreads from open, high, low, and close prices", JFE 161:103916 | Popular range-based spread estimators are downward biased when trading is infrequent; provides a more efficient OHLC estimator. Used as the reference for estimator bias direction. | [verified from abstract 2026-09-05; full text not fetched] |
+| Almgren, Thum, Hauptmann & Li (2005), "Direct estimation of equity market impact", Risk 18:57–62 | Temporary impact estimated as a 3/5-power law in participation with coefficient ≈ 0.142 (the paper rejects the pure square-root form). Our cost model uses k = 0.142, exponent 0.6; the originally pre-registered sqrt/k = 1 form is kept only as a stress variant (registry COST-1). | [verified 2026-09-05 from the author's working-paper PDF: β = 0.600 ± 0.038, η = 0.142 ± 0.0062] |
+| Shumway (1997), "The delisting bias in CRSP data", JF 52(1) | −30% convention for performance delistings of unknown return. | [verified 2026-09-05 — see reports/literature_verification.csv] |
+| Lo (2002), "The statistics of Sharpe ratios", FAJ 58(4) | Sharpe standard error with autocorrelation. | [verified 2026-09-05 — see reports/literature_verification.csv] |
 | Bailey & López de Prado (2012) J. Risk 15(2); (2014) "The deflated Sharpe ratio", JPM 40(5) | PSR and DSR; SR* = √V[SR]·((1−γ)Φ⁻¹(1−1/N) + γΦ⁻¹(1−1/(N·e))). | [verified during plan review against the author's copy at davidhbailey.com] |
 | Bailey, Borwein, López de Prado & Zhu (2017), "The probability of backtest overfitting", J. Comput. Finance 20(4) | CSCV / PBO with S = 16 blocks; candidates only, never placebos. | [verified during plan review] |
-| Politis & Romano (1994), "The stationary bootstrap", JASA 89(428); Politis & White (2004) | Block bootstrap CIs and block-length rule. | [to verify at M1b] |
+| Politis & Romano (1994), "The stationary bootstrap", JASA 89(428); Politis & White (2004) | Block bootstrap CIs and block-length rule. | [verified 2026-09-05 — see reports/literature_verification.csv] |
 | NYSE closing auction fact sheet (nyse.com) | MOC order entry cutoff 15:50 ET. | [verified during plan review] |
 
 ## Pre-registered hypotheses
