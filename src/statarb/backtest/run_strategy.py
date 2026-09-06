@@ -49,7 +49,7 @@ class StrategySpec:
     drawdown_rule: bool = True
     beta_hedge: bool = True
     sector_neutral: bool = True
-    pre_earnings_exclusion: bool = True
+    pre_earnings_exclusion: bool = False   # CONS-1: primary OFF (DEV ablation); ON is a robustness variant
     auction_participation: bool = True
     construction: str = "quantile"    # quantile | hysteresis | event
     signal: str = "reversal"          # reversal | earnings_drift (third strategy: go WITH the move on earnings-8-K days)
