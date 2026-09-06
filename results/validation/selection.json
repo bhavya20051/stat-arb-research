@@ -1,0 +1,122 @@
+{
+ "earnings_drift": {
+  "id": "C-moc-constructionevent-signalearnings_drift-lookback1-holding3-entry_z1.0-vix_gatenone-execmoc",
+  "params": {
+   "lookback": 1,
+   "holding": 3,
+   "entry_z": 1.0,
+   "vix_gate": "none",
+   "exec": "moc",
+   "construction": "event",
+   "signal": "earnings_drift"
+  },
+  "dev": {
+   "id": "C-moc-constructionevent-signalearnings_drift-lookback1-holding3-entry_z1.0-vix_gatenone-execmoc",
+   "lookback": 1,
+   "holding": 3,
+   "n_deciles": NaN,
+   "vix_gate": "none",
+   "exec": "moc",
+   "gross_sr": 0.3206730069635816,
+   "net_sr": 0.0999227835042292,
+   "net_ann": 0.0021526243962111,
+   "max_dd": -0.0645986920046423,
+   "turnover": 0.1635947139412452,
+   "gross_exp": 0.1653458558619069,
+   "cost_bp": 0.2149141405424082,
+   "n_days": 3488,
+   "construction": "event",
+   "entry_z": 1.0,
+   "signal": "earnings_drift",
+   "drift_volume_bucket": NaN,
+   "drift_timing": NaN,
+   "family": "earnings_drift"
+  },
+  "multiple_testing": {
+   "n_candidates": 20,
+   "dev_net_sharpe_ann": 0.0999227835042292,
+   "psr_vs_zero": 0.6456563585272914,
+   "dsr": 0.1496666035933914,
+   "pbo_cscv": 0.6741258741258741
+  }
+ },
+ "event_reversal": {
+  "id": "C-moc-constructionevent-lookback1-holding3-entry_z2.0-vix_gatenone-execloc1.0",
+  "params": {
+   "lookback": 1,
+   "holding": 3,
+   "entry_z": 2.0,
+   "vix_gate": "none",
+   "exec": "loc1.0",
+   "construction": "event"
+  },
+  "dev": {
+   "id": "C-moc-constructionevent-lookback1-holding3-entry_z2.0-vix_gatenone-execloc1.0",
+   "lookback": 1,
+   "holding": 3,
+   "n_deciles": NaN,
+   "vix_gate": "none",
+   "exec": "loc1.0",
+   "gross_sr": 0.90159779352296,
+   "net_sr": 0.7228541989706749,
+   "net_ann": 0.0346989656908747,
+   "max_dd": -0.1298787289632684,
+   "turnover": 0.3085770212550232,
+   "gross_exp": 0.3674070637689416,
+   "cost_bp": 0.3487724684050395,
+   "n_days": 3488,
+   "construction": "event",
+   "entry_z": 2.0,
+   "signal": NaN,
+   "drift_volume_bucket": NaN,
+   "drift_timing": NaN,
+   "family": "event_reversal"
+  },
+  "multiple_testing": {
+   "n_candidates": 48,
+   "dev_net_sharpe_ann": 0.7228541989706749,
+   "psr_vs_zero": 0.9984213105307995,
+   "dsr": 0.631463489032478,
+   "pbo_cscv": 0.4609168609168609
+  }
+ },
+ "rank_reversal": {
+  "id": "C-moc-lookback1-holding3-n_deciles5-vix_gatenone-execloc1.0",
+  "params": {
+   "lookback": 1,
+   "holding": 3,
+   "n_deciles": 5.0,
+   "vix_gate": "none",
+   "exec": "loc1.0"
+  },
+  "dev": {
+   "id": "C-moc-lookback1-holding3-n_deciles5-vix_gatenone-execloc1.0",
+   "lookback": 1,
+   "holding": 3,
+   "n_deciles": 5.0,
+   "vix_gate": "none",
+   "exec": "loc1.0",
+   "gross_sr": 1.1103046728104884,
+   "net_sr": 0.8900612071028942,
+   "net_ann": 0.043116798201946,
+   "max_dd": -0.1219408487887946,
+   "turnover": 0.4812531200295683,
+   "gross_exp": 0.6900302597230739,
+   "cost_bp": 0.4297675118454978,
+   "n_days": 3488,
+   "construction": NaN,
+   "entry_z": NaN,
+   "signal": NaN,
+   "drift_volume_bucket": NaN,
+   "drift_timing": NaN,
+   "family": "rank_reversal"
+  },
+  "multiple_testing": {
+   "n_candidates": 72,
+   "dev_net_sharpe_ann": 0.8900612071028942,
+   "psr_vs_zero": 0.9996735395321726,
+   "dsr": 0.6239923688425694,
+   "pbo_cscv": 0.42455322455322453
+  }
+ }
+}

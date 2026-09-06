@@ -35,3 +35,14 @@ def test_impact_and_borrow():
     p = CostParams(impact_k=1.0, impact_exponent=0.5, borrow_annual=0.005, trading_days=250)
     assert np.isclose(impact_cost(np.array([1e5]), np.array([0.04]), np.array([0.02]), p)[0], 1e5 * 0.02 * 0.2)
     assert np.isclose(borrow_cost(np.array([-1e5, 1e5]), p).sum(), 1e5 * 0.005 / 250)
+
+
+def test_cost_multiplier_scales_all_components():
+    from statarb.backtest.run_strategy import cost_params_from_config
+    a = cost_params_from_config("loc", 1.0, 0.0, "market_maker")
+    b = cost_params_from_config("loc", 2.0, 0.0, "market_maker")
+    assert np.isclose(b.commission_per_share, 2 * a.commission_per_share)
+    assert np.isclose(b.impact_k, 2 * a.impact_k) and np.isclose(b.borrow_annual, 2 * a.borrow_annual)
+    assert np.isclose(b.sec_fee_rate, 2 * a.sec_fee_rate) and np.isclose(b.clearing_pct_notional, 2 * a.clearing_pct_notional)
+    c = cost_params_from_config("loc", 1.0, 5.0, "market_maker")
+    assert c.pay_spread and c.extra_slippage_bp == 5.0

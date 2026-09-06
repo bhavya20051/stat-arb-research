@@ -63,22 +63,25 @@ class StrategySpec:
 
 
 def cost_params_from_config(execution: str, multiplier: float = 1.0, extra_bp: float = 0.0, profile: str = "institutional") -> CostParams:
+    """multiplier scales EVERY cost component (fees, regulatory, clearing, impact, borrow, spread); extra_bp is an
+    additional per-side slippage on all trades (also on auction fills), as a stress."""
     c = load_config("costs")
     prof = c.get("profiles", {}).get(profile) or c["commissions"]
+    m = multiplier
     return CostParams(
-        commission_per_share=prof["per_share_usd"],
-        min_commission_per_order=prof["min_per_order_usd"],
+        commission_per_share=prof["per_share_usd"] * m,
+        min_commission_per_order=prof["min_per_order_usd"] * m,
         max_commission_pct=prof["max_pct_of_trade_value"],
-        sec_fee_rate=prof.get("sec_fee_rate", c["regulatory_fees_on_sells"].get("sec_fee_rate_default", 27.8e-6)),
-        finra_taf_per_share=prof.get("finra_taf_per_share", c["regulatory_fees_on_sells"].get("finra_taf_per_share") or 0.000166),
-        finra_taf_max=prof.get("finra_taf_max_per_trade", c["regulatory_fees_on_sells"].get("finra_taf_max_per_trade") or 8.30),
-        clearing_pct_notional=prof.get("clearing_pct_notional", 0.0),
-        borrow_annual=prof.get("borrow_annual", c["short_borrow"]["general_collateral_annual"]),
-        impact_k=c["impact"]["k"],
+        sec_fee_rate=prof.get("sec_fee_rate", c["regulatory_fees_on_sells"].get("sec_fee_rate_default", 27.8e-6)) * m,
+        finra_taf_per_share=prof.get("finra_taf_per_share", c["regulatory_fees_on_sells"].get("finra_taf_per_share") or 0.000166) * m,
+        finra_taf_max=prof.get("finra_taf_max_per_trade", c["regulatory_fees_on_sells"].get("finra_taf_max_per_trade") or 8.30) * m,
+        clearing_pct_notional=prof.get("clearing_pct_notional", 0.0) * m,
+        borrow_annual=prof.get("borrow_annual", c["short_borrow"]["general_collateral_annual"]) * m,
+        impact_k=c["impact"]["k"] * m,
         impact_exponent=c["impact"].get("exponent", 0.5),
         spread_multiplier=multiplier,
         extra_slippage_bp=extra_bp,
-        pay_spread=(execution not in ("moc", "moo", "loc", "limit")),  # auction fills and resting limit orders pay no spread
+        pay_spread=(execution not in ("moc", "moo", "loc", "limit")) or extra_bp > 0,  # auction/limit fills pay no spread; extra_bp stress applies to all fills
     )
 
 
@@ -186,7 +189,8 @@ def run(spec: StrategySpec, feats: dict | None = None, cost_multiplier: float = 
         fill = adj_close.reindex(w.index)
         lag = 0
     inp = EngineInputs(target_weights=w, fill_price=fill, fill_volume=vol.reindex(w.index), lag=lag, mark_price=mark,
-                       half_spread=(feats["spread"].reindex_like(w) / 2) if "spread" in feats else None,
+                       half_spread=((feats["spread"].reindex_like(w) / 2) if (spec.execution not in ("moc", "moo", "loc", "limit") and "spread" in feats)
+                                    else (w * 0.0 if extra_bp > 0 else None)),
                        sigma_daily=feats["ret"].rolling(60, min_periods=20).std().shift(1).reindex_like(w) if "ret" in feats else None,
                        adv_shares=(feats["auction_vol_proxy"].reindex(index=w.index, columns=syms).rolling(60, min_periods=20).mean().shift(1)
                                    if (spec.auction_participation and spec.execution in ("moc", "loc") and "auction_vol_proxy" in feats)
