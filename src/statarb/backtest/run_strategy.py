@@ -45,6 +45,8 @@ class StrategySpec:
     label: str = "base"
     signal_lag_days: int = 0          # 1 = conservative daily-only proxy for MOC (signal from t-1 data, fill close t)
     construction: str = "quantile"    # quantile | hysteresis
+    limit_delta: float = 0.5
+    limit_through: float = 0.0005
     enter_pct: float = 0.2
     exit_pct: float = 0.4
 
@@ -118,14 +120,32 @@ def run(spec: StrategySpec, feats: dict | None = None, cost_multiplier: float = 
     adj_close = wide("adj_close").reindex(columns=syms)
     raw_close = wide("close_raw").reindex(columns=syms)
     vol = wide("volume").reindex(columns=syms)
+    mark = None
     if spec.execution == "moo":
         adj_open = wide("adj_open").reindex(columns=syms)
         fill = adj_open.reindex(w.index)
         lag = 1
+    elif spec.execution in ("limit", "loc"):
+        from statarb.execution.limit_orders import loc_fills, resting_limit_fills, session_extremes
+        from statarb.features.build_moc import load_moc
+        from statarb.features.intraday import decision_price_panel
+        p1545 = load_moc("p1545").reindex(index=w.index, columns=syms)
+        last_bar = decision_price_panel(syms, "15:45", "close").reindex(index=w.index, columns=syms)
+        ac = adj_close.reindex(w.index)
+        sigma = feats["ret"].reindex(columns=syms).rolling(60, min_periods=20).std().shift(1).reindex(w.index)
+        if spec.execution == "limit":
+            lows, highs = session_extremes(syms, "15:45")
+            fill, filled = resting_limit_fills(w, last_bar, last_bar, ac, sigma, lows, highs, spec.limit_delta, spec.limit_through)
+            lag = 1
+        else:
+            sig_i = (last_bar / p1545 - 1.0).abs().rolling(60, min_periods=20).mean().shift(1)  # typical 15:45->close move
+            fill = loc_fills(w, p1545, last_bar, ac, sig_i, spec.limit_delta)
+            lag = 0
+        mark = ac
     else:
         fill = adj_close.reindex(w.index)
         lag = 0
-    inp = EngineInputs(target_weights=w, fill_price=fill, fill_volume=vol.reindex(w.index), lag=lag,
+    inp = EngineInputs(target_weights=w, fill_price=fill, fill_volume=vol.reindex(w.index), lag=lag, mark_price=mark,
                        half_spread=(feats["spread"].reindex_like(w) / 2) if "spread" in feats else None,
                        sigma_daily=feats["ret"].rolling(60, min_periods=20).std().shift(1).reindex_like(w) if "ret" in feats else None,
                        adv_shares=vol.rolling(60, min_periods=20).mean().shift(1).reindex(w.index),

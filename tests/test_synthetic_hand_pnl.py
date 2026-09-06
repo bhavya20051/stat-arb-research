@@ -52,3 +52,20 @@ def test_borrow_charged_on_short_only():
     # day0: short notional 500,000 * 0.0252/252 = 50 -> 5e-5 of capital
     assert np.isclose(out["borrow"].iloc[0], 50 / 1_000_000, atol=1e-12)
     assert np.isclose(out["borrow"].iloc[2], 0.0)
+
+
+def test_mark_vs_fill_execution_pnl():
+    """Buy 10% of capital at a limit fill of 98 while the close is 100 -> +0.2% execution gain on the fill day,
+    then marked close-to-close; selling next day at a fill of 106 vs close 104 -> +2% * 0.1 gain."""
+    dates = pd.to_datetime(["2020-01-02", "2020-01-03", "2020-01-06"])
+    fill = pd.DataFrame({"X": [98.0, 106.0, 104.0]}, index=dates)
+    mark = pd.DataFrame({"X": [100.0, 104.0, 104.0]}, index=dates)
+    vol = pd.DataFrame({"X": [1e6, 1e6, 1e6]}, index=dates)
+    w = pd.DataFrame({"X": [0.10, 0.0, 0.0]}, index=dates)
+    costs = CostParams(commission_per_share=0, min_commission_per_order=0, borrow_annual=0, pay_spread=False, impact_k=0)
+    out = run_backtest(EngineInputs(w, fill, vol, lag=0, mark_price=mark), 1e6, costs)
+    assert np.isclose(out["gross_ret"].iloc[0], 0.10 * (100 / 98 - 1))
+    # day1: held (marked value 0.10*100/98) earns 104/100-1, then sold at 106 vs mark 104: trade_w = -held
+    held1 = 0.10 * (100 / 98) * (104 / 100)
+    assert np.isclose(out["gross_ret"].iloc[1], 0.10 * (100 / 98) * (104 / 100 - 1) + (-held1) * (104 / 106 - 1))
+    assert np.isclose(out["gross_exposure"].iloc[1], 0.0)

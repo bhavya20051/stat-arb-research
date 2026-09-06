@@ -46,6 +46,9 @@ class EngineInputs:
     sigma_daily: pd.DataFrame | None = None
     adv_shares: pd.DataFrame | None = None  # average daily volume in shares for participation
     delist: dict | None = None  # symbol -> (Timestamp, return)
+    mark_price: pd.DataFrame | None = None  # valuation price per day (e.g. close). If given, positions are marked
+    # close-to-close and trades executed at fill_price incur (mark - fill) execution P&L on the fill day.  If None,
+    # fill_price doubles as the mark (original fill-to-fill model).
 
 
 def run_backtest(inp: EngineInputs, capital: float, costs: CostParams) -> pd.DataFrame:
@@ -67,6 +70,7 @@ def run_backtest(inp: EngineInputs, capital: float, costs: CostParams) -> pd.Dat
     Wv = W.to_numpy(dtype=float)
     Pv = P.to_numpy(dtype=float)
     Vv = V.to_numpy(dtype=float)
+    Mv = inp.mark_price.reindex(index=dates, columns=syms).to_numpy(dtype=float) if inp.mark_price is not None else None
     T, N = Wv.shape
     held = np.zeros(N)  # dollar weights held after the fill on day i (fraction of capital)
     shares = np.zeros(N)
@@ -78,8 +82,8 @@ def run_backtest(inp: EngineInputs, capital: float, costs: CostParams) -> pd.Dat
         # ---- mark-to-market from previous fill to this fill (positions held from fill fi-1 to fi) ----
         gross_pnl = 0.0
         if fi < T and fi - 1 >= 0:
-            p_prev = Pv[fi - 1]
-            p_now = Pv[fi]
+            p_prev = Mv[fi - 1] if Mv is not None else Pv[fi - 1]
+            p_now = Mv[fi] if Mv is not None else Pv[fi]
             ret = np.where(np.isfinite(p_prev) & np.isfinite(p_now) & (p_prev > 0), p_now / p_prev - 1.0, 0.0)
             # delisting: force close at the delisting return on the delisting date
             for j, (pos, r) in delist_idx.items():
@@ -103,6 +107,12 @@ def run_backtest(inp: EngineInputs, capital: float, costs: CostParams) -> pd.Dat
         can_fill = np.isfinite(price) & (price > 0) & np.isfinite(vol) & (vol > 0) & ~dead
         new_held = np.where(can_fill, tgt, held)
         trade_w = new_held - held
+        if Mv is not None:
+            # execution P&L: buying below the mark (or selling above it) is a gain relative to close-to-close marking
+            mark = Mv[fi]
+            exec_pnl = np.where(can_fill & np.isfinite(mark) & (mark > 0), trade_w * (mark / price - 1.0), 0.0)
+            gross_pnl += float(np.nansum(exec_pnl))
+            new_held = np.where(can_fill & np.isfinite(mark) & (mark > 0), new_held * (mark / price), new_held)
         trade_notional = trade_w * capital
         trade_shares = np.where(can_fill & (price > 0), trade_notional / np.where(price > 0, price, np.nan), 0.0)
         trade_shares = np.nan_to_num(trade_shares, nan=0.0)
